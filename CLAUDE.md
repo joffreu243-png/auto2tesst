@@ -18,39 +18,99 @@ This document serves as a comprehensive guide for AI assistants (like Claude) wo
 ## Repository Overview
 
 **Repository**: auto2tesst
-**Status**: Initial setup phase
-**Primary Language**: TBD
-**Framework/Stack**: TBD
+**Status**: Active Development
+**Primary Language**: Python 3.8+
+**Framework/Stack**: Tkinter (GUI), Octobrowser API, Selenium
 
 ### Purpose
 
-This repository is currently in its initial setup phase. This section should be updated to describe:
-- The main purpose and goals of the project
-- Target users or use cases
-- Key features and functionality
-- Any unique aspects or requirements
+**Octobrowser Script Builder** - GUI-приложение конструктор для генерации Python скриптов автоматизации с использованием Octobrowser API.
+
+**Основные цели проекта:**
+- Визуальное создание скриптов автоматизации без написания boilerplate кода
+- Упрощение работы с Octobrowser API
+- Конструктор с чекбоксами для выбора функций (профили, прокси, fingerprints, теги)
+- Генерация готовых к запуску Python скриптов
+- Встроенный редактор кода для пользовательской автоматизации
+- Запуск сгенерированных скриптов прямо из приложения
+
+**Целевые пользователи:**
+- Специалисты по автоматизации браузеров
+- Пользователи Octobrowser, желающие автоматизировать работу с профилями
+- Разработчики, создающие скрипты для веб-скрейпинга и тестирования
+- Маркетологи и арбитражники, работающие с множественными профилями
+
+**Ключевые возможности:**
+- Создание и настройка профилей через API
+- Генерация случайных fingerprints
+- Настройка прокси (HTTP, HTTPS, SOCKS5)
+- Управление тегами профилей
+- Интеграция с Selenium для автоматизации
+- Генерация готового Python кода
+- Запуск и отладка скриптов
 
 ---
 
 ## Codebase Structure
 
-Currently, the repository is empty. As the project develops, document the directory structure here:
-
 ```
 auto2tesst/
-├── .git/               # Git version control
-└── CLAUDE.md           # This file
+├── src/                          # Исходный код приложения
+│   ├── __init__.py
+│   ├── api/                      # Модули работы с API
+│   │   ├── __init__.py
+│   │   └── octobrowser_api.py    # Класс для взаимодействия с Octobrowser API
+│   ├── gui/                      # GUI интерфейс
+│   │   ├── __init__.py
+│   │   ├── main_window.py        # Главное окно приложения (Tkinter)
+│   │   └── components/           # GUI компоненты (для будущего расширения)
+│   │       └── __init__.py
+│   ├── generator/                # Генератор Python скриптов
+│   │   ├── __init__.py
+│   │   └── script_generator.py   # Класс генерации кода из шаблонов
+│   ├── runner/                   # Модуль запуска скриптов
+│   │   ├── __init__.py
+│   │   └── script_runner.py      # Выполнение сгенерированных скриптов
+│   └── utils/                    # Утилиты и вспомогательные функции
+│       └── __init__.py
+├── generated_scripts/            # Папка для сгенерированных скриптов
+│   └── .gitkeep
+├── templates/                    # Шаблоны кода (для будущего использования)
+├── config.json                   # Конфигурация (API token, настройки)
+├── main.py                       # Точка входа приложения
+├── requirements.txt              # Python зависимости
+├── README.md                     # Руководство пользователя
+├── CLAUDE.md                     # Документация для AI (этот файл)
+└── .gitignore                    # Игнорируемые файлы
 ```
 
-### Expected Structure (to be updated as project grows)
+### Описание компонентов
 
-When adding code, consider organizing by:
-- **Source code**: Main application/library code
-- **Tests**: Unit, integration, and end-to-end tests
-- **Configuration**: Environment configs, build configs
-- **Documentation**: Additional docs beyond this file
-- **Scripts**: Build, deployment, or utility scripts
-- **Assets**: Static files, images, data files
+**src/api/octobrowser_api.py** (src/api/octobrowser_api.py:1)
+- Класс `OctobrowserAPI` для работы с REST API
+- Методы для профилей: get_profiles, create_profile, update_profile, delete_profile, start_profile, stop_profile
+- Методы для тегов: get_tags, create_tag, delete_tag
+- Методы для прокси: get_proxies, create_proxy, delete_proxy
+- Методы для fingerprints: get_fingerprint_settings, generate_fingerprint
+
+**src/generator/script_generator.py** (src/generator/script_generator.py:1)
+- Класс `ScriptGenerator` для генерации Python кода
+- Генерация импортов, конфигурации, функций создания профиля
+- Генерация кода подключения Selenium
+- Генерация главной функции с пользовательским кодом
+- Система приоритетов для блоков кода
+
+**src/runner/script_runner.py** (src/runner/script_runner.py:1)
+- Класс `ScriptRunner` для запуска сгенерированных скриптов
+- Асинхронное и синхронное выполнение
+- Callback для вывода логов в реальном времени
+- Управление процессами (запуск, остановка)
+
+**src/gui/main_window.py** (src/gui/main_window.py:1)
+- Класс `OctobrowserScriptBuilder` - главное окно приложения
+- Левая панель: настройки API, профилей, fingerprints, прокси, тегов
+- Правая панель: редактор кода и вывод выполнения
+- Кнопки: генерация, сохранение, запуск, остановка скриптов
 
 ---
 
@@ -58,18 +118,64 @@ When adding code, consider organizing by:
 
 ### Setting Up Development Environment
 
-As the project develops, document:
-1. Prerequisites (languages, tools, versions)
-2. Installation steps
-3. Environment configuration
-4. Initial setup commands
+**Prerequisites:**
+- Python 3.8 или выше
+- pip (Python package manager)
+- Octobrowser установлен и имеется API токен
+- Git для контроля версий
+
+**Installation:**
+```bash
+# Клонирование репозитория
+git clone <repository-url>
+cd auto2tesst
+
+# Установка зависимостей
+pip install -r requirements.txt
+
+# Настройка конфигурации
+# Отредактировать config.json и указать API токен
+```
+
+**Зависимости:**
+- `requests==2.31.0` - HTTP клиент для API запросов
+- `selenium==4.15.2` - Автоматизация браузеров
+- `tkinter-tooltip==2.1.0` - Подсказки для GUI
+- `pillow==10.1.0` - Работа с изображениями
+
+**Конфигурация (config.json):**
+```json
+{
+  "octobrowser": {
+    "api_base_url": "https://app.octobrowser.net/api/v2/automation",
+    "api_token": "YOUR_API_TOKEN_HERE"
+  },
+  "script_settings": {
+    "output_directory": "generated_scripts",
+    "default_automation_framework": "selenium"
+  }
+}
+```
 
 ### Running the Project
 
-Document how to:
-- Start the development server/application
-- Build for production
-- Run in different environments
+**Запуск приложения:**
+```bash
+python main.py
+```
+
+**Разработка:**
+- Все изменения GUI делаются в `src/gui/main_window.py`
+- API методы добавляются в `src/api/octobrowser_api.py`
+- Генератор кода модифицируется в `src/generator/script_generator.py`
+
+**Тестирование функционала:**
+1. Запустить приложение
+2. Ввести API токен и подключиться
+3. Настроить параметры профиля
+4. Написать тестовый код в редакторе
+5. Сгенерировать скрипт
+6. Запустить и проверить вывод
 
 ---
 
@@ -77,23 +183,69 @@ Document how to:
 
 ### Code Style
 
-Define and document:
-- **Formatting**: Indentation (spaces/tabs), line length
-- **Naming**: Variables, functions, classes, files
-- **Comments**: When and how to comment
-- **Language-specific**: Framework patterns, idioms
+**Python Style Guide (PEP 8):**
+- **Indentation**: 4 пробела
+- **Line Length**: Максимум 120 символов
+- **Encoding**: UTF-8
+- **Imports**: Группируются (stdlib, third-party, local)
+- **Docstrings**: Google style для всех классов и публичных методов
+
+**Naming Conventions:**
+- **Classes**: `PascalCase` (например, `OctobrowserAPI`, `ScriptGenerator`)
+- **Functions/Methods**: `snake_case` (например, `create_profile`, `generate_script`)
+- **Variables**: `snake_case` (например, `api_token`, `profile_data`)
+- **Constants**: `UPPER_SNAKE_CASE` (например, `API_BASE_URL`)
+- **Private**: Префикс `_` (например, `_make_request`, `_generate_header`)
+
+**Comments:**
+- Документируйте "почему", а не "что"
+- Используйте docstrings для всех публичных API
+- Комментарии на русском для внутренней логики, на английском для API
+
+**Type Hints:**
+- Используйте type hints для параметров функций
+- Используйте `Optional`, `Dict`, `List` из typing
+- Пример: `def create_profile(self, profile_data: Dict) -> Dict:`
 
 ### File Organization
 
-- How files should be named
-- Where different types of files should live
-- Module/component organization patterns
+**Naming Patterns:**
+- Python модули: `lowercase_with_underscores.py`
+- Классы: Один основной класс на файл
+- Конфигурация: JSON формат, `config.json`
+- Скрипты: `automation_script_YYYYMMDD_HHMMSS.py`
+
+**Module Structure:**
+- `__init__.py` в каждом пакете
+- Импорты абсолютные от корня проекта
+- Избегать циклических зависимостей
+
+**Generated Scripts:**
+- Сохраняются в `generated_scripts/`
+- Имеют timestamp в имени
+- Содержат полный автономный код
 
 ### Dependencies
 
-- How to add new dependencies
-- Version pinning strategy
-- Dependency update policy
+**Adding Dependencies:**
+```bash
+# Установить новый пакет
+pip install package_name
+
+# Обновить requirements.txt
+pip freeze > requirements.txt
+```
+
+**Version Pinning:**
+- Использовать точные версии для стабильности
+- Формат: `package==version`
+- Регулярно проверять обновления безопасности
+
+**Dependency Updates:**
+1. Проверить changelog пакета
+2. Тестировать в dev среде
+3. Обновить requirements.txt
+4. Документировать breaking changes
 
 ---
 
@@ -318,7 +470,7 @@ As this project grows, update this document to reflect:
 ## Maintenance
 
 **Last Updated**: 2025-11-15
-**Updated By**: Claude (Initial creation)
+**Updated By**: Claude (Full project implementation)
 
 **Update Triggers**:
 - Major architectural changes
@@ -331,11 +483,47 @@ As this project grows, update this document to reflect:
 
 ## Additional Resources
 
-As the project develops, add links to:
-- External documentation
-- API references
-- Design documents
-- Architecture diagrams
-- Related repositories
-- Issue tracker
-- CI/CD pipeline
+### Octobrowser API
+
+**Официальная документация:**
+- Swagger API: https://swagger.octobrowser.net/
+- Postman Collection: https://documenter.getpostman.com/view/1801428/UVC6i6eA
+- Официальные docs: https://docs.octobrowser.net/
+- API FAQ: https://docs.octobrowser.net/en/faq/api-faq/
+
+**Base URL:** `https://app.octobrowser.net/api/v2/automation`
+
+**Аутентификация:**
+- Header: `X-Octo-Api-Token: YOUR_TOKEN`
+- Токен находится в Octobrowser → Настройки → Вкладка "Дополнительно"
+
+**Rate Limits:**
+- Base: 50 RPM / 500 RPH
+- Team: 100 RPM / 1,500 RPH
+- Advanced: 200+ RPM / 3,000+ RPH
+
+**Основные endpoints:**
+- `GET /profiles` - Список профилей
+- `POST /profiles` - Создать профиль
+- `GET /profiles/{uuid}` - Получить профиль
+- `PATCH /profiles/{uuid}` - Обновить профиль
+- `DELETE /profiles/{uuid}` - Удалить профиль
+- `POST /profiles/{uuid}/start` - Запустить профиль
+- `POST /profiles/{uuid}/stop` - Остановить профиль
+- `GET /tags` - Получить теги
+- `POST /tags` - Создать тег
+- `GET /proxies` - Получить прокси
+- `POST /proxies` - Добавить прокси
+
+### External Resources
+
+- [Selenium Documentation](https://www.selenium.dev/documentation/)
+- [Python Requests Library](https://requests.readthedocs.io/)
+- [Tkinter Documentation](https://docs.python.org/3/library/tkinter.html)
+- [PEP 8 Style Guide](https://pep8.org/)
+
+### Project Resources
+
+- README.md - Полное руководство пользователя
+- config.json - Файл конфигурации
+- generated_scripts/ - Примеры сгенерированных скриптов
