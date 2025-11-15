@@ -127,9 +127,15 @@ def create_profile():
     )
 
     if response.status_code == 200:
-        profile = response.json()
-        print(f"Профиль создан: {profile.get('uuid')}")
-        return profile.get('uuid')
+        result = response.json()
+        # API возвращает структуру: {"success": true, "data": {"uuid": "..."}}
+        if result.get('success') and result.get('data'):
+            uuid = result['data'].get('uuid')
+            print(f"Профиль создан: {uuid}")
+            return uuid
+        else:
+            print(f"Ошибка создания профиля: {response.text}")
+            return None
     else:
         print(f"Ошибка создания профиля: {response.text}")
         return None
@@ -155,10 +161,15 @@ def start_profile(profile_uuid):
     )
 
     if response.status_code == 200:
-        data = response.json()
-        debug_port = data.get('debug_port')
-        print(f"Профиль запущен на порту: {debug_port}")
-        return debug_port
+        result = response.json()
+        # API возвращает структуру: {"success": true, "data": {"debug_port": ...}}
+        if result.get('success') and result.get('data'):
+            debug_port = result['data'].get('debug_port')
+            print(f"Профиль запущен на порту: {debug_port}")
+            return debug_port
+        else:
+            print(f"Ошибка запуска профиля: {response.text}")
+            return None
     else:
         print(f"Ошибка запуска профиля: {response.text}")
         return None
