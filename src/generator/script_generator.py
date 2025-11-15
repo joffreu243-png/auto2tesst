@@ -154,11 +154,11 @@ def create_profile():
 '''
         return code
 
-    def _generate_profile_start(self) -> str:
-        """Генерация кода запуска профиля"""
+    def _generate_profile_check(self) -> str:
+        """Генерация кода проверки существования профиля"""
         code = '''
-def start_profile(profile_uuid):
-    """Запуск профиля и получение debug port"""
+def check_profile_exists(profile_uuid):
+    """Проверка существования профиля"""
     import requests
 
     headers = {
@@ -166,10 +166,49 @@ def start_profile(profile_uuid):
         'Content-Type': 'application/json'
     }
 
-    response = requests.post(
-        f"{API_BASE_URL}/profiles/{profile_uuid}/start",
-        headers=headers
-    )
+    url = f"{API_BASE_URL}/profiles/{profile_uuid}"
+    print(f"DEBUG CHECK: Проверка профиля по URL = {url}")
+
+    response = requests.get(url, headers=headers)
+
+    print(f"DEBUG CHECK: HTTP Status Code = {response.status_code}")
+
+    if response.status_code == 200:
+        result = response.json()
+        if 'data' in result and result['data']:
+            print(f"✅ Профиль найден: {result['data'].get('title', 'Без названия')}")
+            return True
+        else:
+            print(f"❌ Профиль не найден в ответе: {response.text}")
+            return False
+    else:
+        print(f"❌ Ошибка проверки профиля: {response.text}")
+        return False
+
+'''
+        return code
+
+    def _generate_profile_start(self) -> str:
+        """Генерация кода запуска профиля"""
+        code = '''
+def start_profile(profile_uuid):
+    """Запуск профиля и получение debug port"""
+    import requests
+    import time
+
+    headers = {
+        'X-Octo-Api-Token': API_TOKEN,
+        'Content-Type': 'application/json'
+    }
+
+    # Небольшая задержка после создания профиля
+    print(f"Ожидание инициализации профиля {profile_uuid}...")
+    time.sleep(2)
+
+    url = f"{API_BASE_URL}/profiles/{profile_uuid}/start"
+    print(f"DEBUG START: Запрос к URL = {url}")
+
+    response = requests.post(url, headers=headers)
 
     print(f"DEBUG START: HTTP Status Code = {response.status_code}")
     print(f"DEBUG START: Response Text = {response.text}")
@@ -386,7 +425,12 @@ def main():
 
         # Запуск профиля
         if use_profile_creation:
-            code += '''        # Запуск профиля
+            code += '''        # Проверка существования профиля
+        if not check_profile_exists(profile_uuid):
+            print("Профиль не найден в системе")
+            return
+
+        # Запуск профиля
         debug_port = start_profile(profile_uuid)
         if not debug_port:
             print("Не удалось запустить профиль")
@@ -537,7 +581,12 @@ def run_automation_iteration(iteration_number, data_row):
 
         # Запуск профиля
         if use_profile_creation:
-            code += '''        # Запуск профиля
+            code += '''        # Проверка существования профиля
+        if not check_profile_exists(profile_uuid):
+            print("Профиль не найден в системе")
+            return False
+
+        # Запуск профиля
         debug_port = start_profile(profile_uuid)
         if not debug_port:
             print("Не удалось запустить профиль")
@@ -701,6 +750,7 @@ if __name__ == "__main__":
         # Добавляем функции в зависимости от опций
         if options.get('create_profile', False):
             script += self._generate_profile_creation(options.get('profile_config', {}))
+            script += self._generate_profile_check()
             script += self._generate_profile_start()
             script += self._generate_profile_stop()
 
