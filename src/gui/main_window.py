@@ -81,7 +81,7 @@ class OctobrowserScriptBuilder:
             self.status_label.config(text="⏳ Проверка подключения...", foreground="orange")
             self.root.update_idletasks()
 
-            result = self.api.get_profiles(page=0, page_len=1)
+            result = self.api.get_profiles(page=0, page_len=10)
 
             if 'error' in result:
                 error_msg = result.get('error', 'Неизвестная ошибка')
