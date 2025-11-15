@@ -176,13 +176,13 @@ def check_profile_exists(profile_uuid):
     if response.status_code == 200:
         result = response.json()
         if 'data' in result and result['data']:
-            print(f"✅ Профиль найден: {result['data'].get('title', 'Без названия')}")
+            print(f"[OK] Профиль найден: {result['data'].get('title', 'Без названия')}")
             return True
         else:
-            print(f"❌ Профиль не найден в ответе: {response.text}")
+            print(f"[ОШИБКА] Профиль не найден в ответе: {response.text}")
             return False
     else:
-        print(f"❌ Ошибка проверки профиля: {response.text}")
+        print(f"[ОШИБКА] Ошибка проверки профиля: {response.text}")
         return False
 
 '''
