@@ -37,9 +37,8 @@ class OctobrowserScriptBuilder:
         # Создание интерфейса
         self.create_widgets()
 
-        # Инициализация API если токен есть (без показа messagebox при старте)
-        if self.config.get('octobrowser', {}).get('api_token') != 'YOUR_API_TOKEN_HERE':
-            self.init_api(show_messages=False)
+        # НЕ инициализируем API автоматически - это вызывает лаги
+        # Пользователь должен нажать "Подключить API" сам
 
     def load_config(self):
         """Загрузка конфигурации"""
@@ -206,7 +205,7 @@ class OctobrowserScriptBuilder:
 
         # API Token
         ttk.Label(api_frame, text="API Token:").pack(anchor=tk.W)
-        self.api_token_entry = ttk.Entry(api_frame, width=40, show="*")
+        self.api_token_entry = ttk.Entry(api_frame, width=50)
         self.api_token_entry.insert(0, self.config['octobrowser']['api_token'])
         self.api_token_entry.pack(fill=tk.X, pady=(0, 5))
 
@@ -329,14 +328,11 @@ class OctobrowserScriptBuilder:
         self.cookies_options_frame = ttk.Frame(cookies_frame)
         self.cookies_options_frame.pack(fill=tk.X, padx=20, pady=5)
 
-        ttk.Label(self.cookies_options_frame, text="Cookies (JSON массив):").pack(anchor=tk.W)
-        self.cookies_text = scrolledtext.ScrolledText(self.cookies_options_frame, height=4, wrap=tk.WORD,
+        ttk.Label(self.cookies_options_frame, text="Cookies (JSON): [{}]").pack(anchor=tk.W)
+        self.cookies_text = scrolledtext.ScrolledText(self.cookies_options_frame, height=3, wrap=tk.WORD,
                                                        font=("Consolas", 9))
         self.cookies_text.pack(fill=tk.X)
-        self.cookies_text.insert("1.0", '''[
-  {"name": "session", "value": "abc123", "domain": ".example.com"},
-  {"name": "user_id", "value": "12345", "domain": ".example.com"}
-]''')
+        # Не вставляем пример - для ускорения загрузки
 
         self.toggle_cookies_options()
 
@@ -352,14 +348,11 @@ class OctobrowserScriptBuilder:
         self.bookmarks_options_frame = ttk.Frame(bookmarks_frame)
         self.bookmarks_options_frame.pack(fill=tk.X, padx=20, pady=5)
 
-        ttk.Label(self.bookmarks_options_frame, text="Закладки (JSON массив):").pack(anchor=tk.W)
-        self.bookmarks_text = scrolledtext.ScrolledText(self.bookmarks_options_frame, height=4, wrap=tk.WORD,
+        ttk.Label(self.bookmarks_options_frame, text="Закладки (JSON): [{}]").pack(anchor=tk.W)
+        self.bookmarks_text = scrolledtext.ScrolledText(self.bookmarks_options_frame, height=3, wrap=tk.WORD,
                                                          font=("Consolas", 9))
         self.bookmarks_text.pack(fill=tk.X)
-        self.bookmarks_text.insert("1.0", '''[
-  {"title": "Google", "url": "https://google.com"},
-  {"title": "GitHub", "url": "https://github.com"}
-]''')
+        # Не вставляем пример - для ускорения загрузки
 
         self.toggle_bookmarks_options()
 
@@ -375,12 +368,11 @@ class OctobrowserScriptBuilder:
         self.extensions_options_frame = ttk.Frame(extensions_frame)
         self.extensions_options_frame.pack(fill=tk.X, padx=20, pady=5)
 
-        ttk.Label(self.extensions_options_frame, text="Пути к расширениям (по одному на строку):").pack(anchor=tk.W)
-        self.extensions_text = scrolledtext.ScrolledText(self.extensions_options_frame, height=3, wrap=tk.WORD,
+        ttk.Label(self.extensions_options_frame, text="Пути к .crx (по строке)").pack(anchor=tk.W)
+        self.extensions_text = scrolledtext.ScrolledText(self.extensions_options_frame, height=2, wrap=tk.WORD,
                                                           font=("Consolas", 9))
         self.extensions_text.pack(fill=tk.X)
-        self.extensions_text.insert("1.0", '''C:/path/to/extension1.crx
-C:/path/to/extension2.crx''')
+        # Не вставляем пример - для ускорения загрузки
 
         self.toggle_extensions_options()
 
@@ -449,24 +441,11 @@ C:/path/to/extension2.crx''')
                                                      font=("Consolas", 10))
         self.code_editor.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        # Пример кода
-        example_code = '''# Пример: навигация и действия
+        # Пример кода (короткий, чтобы не лагало)
+        example_code = '''# Ваш код автоматизации
 driver.get("https://example.com")
-time.sleep(2)
 
-# Найти элемент и кликнуть
-from selenium.webdriver.common.by import By
-element = driver.find_element(By.ID, "some-button")
-element.click()
-
-print("Автоматизация выполнена!")
-
-# === Пример с параметризацией ===
-# Используйте {{variable}} для подстановки данных из CSV
-# Например:
-# search_input = driver.find_element(By.ID, "search")
-# search_input.send_keys({{search_query}})
-# print(f"Поиск: {{search_query}}")
+# С параметризацией: {{variable}}
 '''
         self.code_editor.insert("1.0", example_code)
 
