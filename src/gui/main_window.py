@@ -317,6 +317,73 @@ class OctobrowserScriptBuilder:
 
         self.toggle_tags_options()
 
+        # === COOKIES ===
+        cookies_frame = ttk.LabelFrame(scrollable_frame, text="🍪 Cookies", padding=10)
+        cookies_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.use_cookies_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(cookies_frame, text="Добавить cookies в профиль",
+                       variable=self.use_cookies_var,
+                       command=self.toggle_cookies_options).pack(anchor=tk.W)
+
+        self.cookies_options_frame = ttk.Frame(cookies_frame)
+        self.cookies_options_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        ttk.Label(self.cookies_options_frame, text="Cookies (JSON массив):").pack(anchor=tk.W)
+        self.cookies_text = scrolledtext.ScrolledText(self.cookies_options_frame, height=4, wrap=tk.WORD,
+                                                       font=("Consolas", 9))
+        self.cookies_text.pack(fill=tk.X)
+        self.cookies_text.insert("1.0", '''[
+  {"name": "session", "value": "abc123", "domain": ".example.com"},
+  {"name": "user_id", "value": "12345", "domain": ".example.com"}
+]''')
+
+        self.toggle_cookies_options()
+
+        # === BOOKMARKS ===
+        bookmarks_frame = ttk.LabelFrame(scrollable_frame, text="📚 Закладки", padding=10)
+        bookmarks_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.use_bookmarks_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bookmarks_frame, text="Добавить закладки в профиль",
+                       variable=self.use_bookmarks_var,
+                       command=self.toggle_bookmarks_options).pack(anchor=tk.W)
+
+        self.bookmarks_options_frame = ttk.Frame(bookmarks_frame)
+        self.bookmarks_options_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        ttk.Label(self.bookmarks_options_frame, text="Закладки (JSON массив):").pack(anchor=tk.W)
+        self.bookmarks_text = scrolledtext.ScrolledText(self.bookmarks_options_frame, height=4, wrap=tk.WORD,
+                                                         font=("Consolas", 9))
+        self.bookmarks_text.pack(fill=tk.X)
+        self.bookmarks_text.insert("1.0", '''[
+  {"title": "Google", "url": "https://google.com"},
+  {"title": "GitHub", "url": "https://github.com"}
+]''')
+
+        self.toggle_bookmarks_options()
+
+        # === EXTENSIONS ===
+        extensions_frame = ttk.LabelFrame(scrollable_frame, text="🧩 Расширения", padding=10)
+        extensions_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.use_extensions_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(extensions_frame, text="Добавить расширения в профиль",
+                       variable=self.use_extensions_var,
+                       command=self.toggle_extensions_options).pack(anchor=tk.W)
+
+        self.extensions_options_frame = ttk.Frame(extensions_frame)
+        self.extensions_options_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        ttk.Label(self.extensions_options_frame, text="Пути к расширениям (по одному на строку):").pack(anchor=tk.W)
+        self.extensions_text = scrolledtext.ScrolledText(self.extensions_options_frame, height=3, wrap=tk.WORD,
+                                                          font=("Consolas", 9))
+        self.extensions_text.pack(fill=tk.X)
+        self.extensions_text.insert("1.0", '''C:/path/to/extension1.crx
+C:/path/to/extension2.crx''')
+
+        self.toggle_extensions_options()
+
         # === AUTOMATION FRAMEWORK ===
         framework_frame = ttk.LabelFrame(scrollable_frame, text="🤖 Фреймворк автоматизации", padding=10)
         framework_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -397,6 +464,27 @@ print("Автоматизация выполнена!")
             if isinstance(child, ttk.Entry):
                 child.configure(state=state)
 
+    def toggle_cookies_options(self):
+        """Переключение опций cookies"""
+        state = "normal" if self.use_cookies_var.get() else "disabled"
+        for child in self.cookies_options_frame.winfo_children():
+            if isinstance(child, scrolledtext.ScrolledText):
+                child.configure(state=state)
+
+    def toggle_bookmarks_options(self):
+        """Переключение опций закладок"""
+        state = "normal" if self.use_bookmarks_var.get() else "disabled"
+        for child in self.bookmarks_options_frame.winfo_children():
+            if isinstance(child, scrolledtext.ScrolledText):
+                child.configure(state=state)
+
+    def toggle_extensions_options(self):
+        """Переключение опций расширений"""
+        state = "normal" if self.use_extensions_var.get() else "disabled"
+        for child in self.extensions_options_frame.winfo_children():
+            if isinstance(child, scrolledtext.ScrolledText):
+                child.configure(state=state)
+
     def connect_api(self):
         """Подключение к API"""
         token = self.api_token_entry.get().strip()
@@ -465,6 +553,9 @@ print("Автоматизация выполнена!")
             'create_profile': self.create_profile_var.get(),
             'cleanup_profile': self.cleanup_profile_var.get(),
             'use_selenium': self.use_selenium_var.get(),
+            'use_cookies': self.use_cookies_var.get(),
+            'use_bookmarks': self.use_bookmarks_var.get(),
+            'use_extensions': self.use_extensions_var.get(),
             'profile_config': {}
         }
 
@@ -497,6 +588,30 @@ print("Автоматизация выполнена!")
                     profile_config['tags'] = [t.strip() for t in tags_text.split(',')]
 
             options['profile_config'] = profile_config
+
+        # Cookies
+        if self.use_cookies_var.get():
+            try:
+                cookies_text = self.cookies_text.get("1.0", tk.END).strip()
+                if cookies_text:
+                    options['cookies_data'] = json.loads(cookies_text)
+            except json.JSONDecodeError:
+                options['cookies_data'] = []
+
+        # Bookmarks
+        if self.use_bookmarks_var.get():
+            try:
+                bookmarks_text = self.bookmarks_text.get("1.0", tk.END).strip()
+                if bookmarks_text:
+                    options['bookmarks_data'] = json.loads(bookmarks_text)
+            except json.JSONDecodeError:
+                options['bookmarks_data'] = []
+
+        # Extensions
+        if self.use_extensions_var.get():
+            extensions_text = self.extensions_text.get("1.0", tk.END).strip()
+            if extensions_text:
+                options['extensions_data'] = [line.strip() for line in extensions_text.split('\n') if line.strip()]
 
         return options
 

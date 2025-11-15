@@ -195,8 +195,103 @@ def stop_profile(profile_uuid):
 '''
         return code
 
+    def _generate_cookies_management(self, cookies_data: List[Dict]) -> str:
+        """Генерация кода управления cookies"""
+        code = '''
+def add_cookies(profile_uuid, cookies):
+    """Добавление cookies в профиль"""
+    import requests
+
+    headers = {
+        'X-Octo-Api-Token': API_TOKEN,
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.post(
+        f"{API_BASE_URL}/profiles/{profile_uuid}/cookies",
+        headers=headers,
+        json={'cookies': cookies}
+    )
+
+    if response.status_code == 200:
+        print(f"Добавлено {len(cookies)} cookies")
+        return True
+    else:
+        print(f"Ошибка добавления cookies: {response.text}")
+        return False
+
+'''
+        if cookies_data:
+            code += f"\n# Предустановленные cookies\nPREDEFINED_COOKIES = {cookies_data}\n\n"
+
+        return code
+
+    def _generate_bookmarks_management(self, bookmarks_data: List[Dict]) -> str:
+        """Генерация кода управления закладками"""
+        code = '''
+def add_bookmarks(profile_uuid, bookmarks):
+    """Добавление закладок в профиль"""
+    import requests
+
+    headers = {
+        'X-Octo-Api-Token': API_TOKEN,
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.post(
+        f"{API_BASE_URL}/profiles/{profile_uuid}/bookmarks",
+        headers=headers,
+        json={'bookmarks': bookmarks}
+    )
+
+    if response.status_code == 200:
+        print(f"Добавлено {len(bookmarks)} закладок")
+        return True
+    else:
+        print(f"Ошибка добавления закладок: {response.text}")
+        return False
+
+'''
+        if bookmarks_data:
+            code += f"\n# Предустановленные закладки\nPREDEFINED_BOOKMARKS = {bookmarks_data}\n\n"
+
+        return code
+
+    def _generate_extensions_management(self, extensions_data: List[str]) -> str:
+        """Генерация кода управления расширениями"""
+        code = '''
+def add_extension(profile_uuid, extension_path):
+    """Добавление расширения в профиль"""
+    import requests
+
+    headers = {
+        'X-Octo-Api-Token': API_TOKEN,
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.post(
+        f"{API_BASE_URL}/profiles/{profile_uuid}/extensions",
+        headers=headers,
+        json={'path': extension_path}
+    )
+
+    if response.status_code == 200:
+        print(f"Расширение добавлено: {extension_path}")
+        return True
+    else:
+        print(f"Ошибка добавления расширения: {response.text}")
+        return False
+
+'''
+        if extensions_data:
+            code += f"\n# Предустановленные расширения\nPREDEFINED_EXTENSIONS = {extensions_data}\n\n"
+
+        return code
+
     def _generate_main_function(self, user_code: str, use_profile_creation: bool,
-                                use_selenium: bool, cleanup_profile: bool) -> str:
+                                use_selenium: bool, cleanup_profile: bool,
+                                use_cookies: bool = False, use_bookmarks: bool = False,
+                                use_extensions: bool = False) -> str:
         """Генерация главной функции"""
         code = '''
 def main():
@@ -215,7 +310,36 @@ def main():
             print("Не удалось создать профиль")
             return
 
+'''
+
+        # Добавление cookies
+        if use_cookies:
+            code += '''        # Добавление cookies
+        if 'PREDEFINED_COOKIES' in globals() and PREDEFINED_COOKIES:
+            add_cookies(profile_uuid, PREDEFINED_COOKIES)
+
+'''
+
+        # Добавление bookmarks
+        if use_bookmarks:
+            code += '''        # Добавление закладок
+        if 'PREDEFINED_BOOKMARKS' in globals() and PREDEFINED_BOOKMARKS:
+            add_bookmarks(profile_uuid, PREDEFINED_BOOKMARKS)
+
+'''
+
+        # Добавление extensions
+        if use_extensions:
+            code += '''        # Добавление расширений
+        if 'PREDEFINED_EXTENSIONS' in globals() and PREDEFINED_EXTENSIONS:
+            for ext_path in PREDEFINED_EXTENSIONS:
+                add_extension(profile_uuid, ext_path)
+
+'''
+
         # Запуск профиля
+        if use_profile_creation:
+            code += '''        # Запуск профиля
         debug_port = start_profile(profile_uuid)
         if not debug_port:
             print("Не удалось запустить профиль")
@@ -304,6 +428,18 @@ if __name__ == "__main__":
             script += self._generate_profile_start()
             script += self._generate_profile_stop()
 
+        # Cookies
+        if options.get('use_cookies', False):
+            script += self._generate_cookies_management(options.get('cookies_data', []))
+
+        # Bookmarks
+        if options.get('use_bookmarks', False):
+            script += self._generate_bookmarks_management(options.get('bookmarks_data', []))
+
+        # Extensions
+        if options.get('use_extensions', False):
+            script += self._generate_extensions_management(options.get('extensions_data', []))
+
         if options.get('use_selenium', False):
             script += self._generate_selenium_connection()
 
@@ -312,7 +448,10 @@ if __name__ == "__main__":
             user_code,
             options.get('create_profile', False),
             options.get('use_selenium', False),
-            options.get('cleanup_profile', False)
+            options.get('cleanup_profile', False),
+            options.get('use_cookies', False),
+            options.get('use_bookmarks', False),
+            options.get('use_extensions', False)
         )
 
         return script
