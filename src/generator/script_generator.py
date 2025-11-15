@@ -126,7 +126,10 @@ def create_profile():
         json=profile_data
     )
 
-    if response.status_code == 200:
+    print(f"DEBUG: HTTP Status Code = {response.status_code}")
+    print(f"DEBUG: Response Text = {response.text}")
+
+    if response.status_code in [200, 201]:
         result = response.json()
 
         # === ОТЛАДКА ===
@@ -168,7 +171,10 @@ def start_profile(profile_uuid):
         headers=headers
     )
 
-    if response.status_code == 200:
+    print(f"DEBUG START: HTTP Status Code = {response.status_code}")
+    print(f"DEBUG START: Response Text = {response.text}")
+
+    if response.status_code in [200, 201]:
         result = response.json()
 
         # === ОТЛАДКА ===
@@ -226,7 +232,7 @@ def stop_profile(profile_uuid):
         headers=headers
     )
 
-    if response.status_code == 200:
+    if response.status_code in [200, 201]:
         print("Профиль остановлен")
         return True
     else:
@@ -254,7 +260,7 @@ def add_cookies(profile_uuid, cookies):
         json={'cookies': cookies}
     )
 
-    if response.status_code == 200:
+    if response.status_code in [200, 201]:
         print(f"Добавлено {len(cookies)} cookies")
         return True
     else:
@@ -285,7 +291,7 @@ def add_bookmarks(profile_uuid, bookmarks):
         json={'bookmarks': bookmarks}
     )
 
-    if response.status_code == 200:
+    if response.status_code in [200, 201]:
         print(f"Добавлено {len(bookmarks)} закладок")
         return True
     else:
@@ -316,7 +322,7 @@ def add_extension(profile_uuid, extension_path):
         json={'path': extension_path}
     )
 
-    if response.status_code == 200:
+    if response.status_code in [200, 201]:
         print(f"Расширение добавлено: {extension_path}")
         return True
     else:
