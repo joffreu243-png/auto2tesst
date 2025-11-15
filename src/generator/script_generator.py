@@ -129,8 +129,9 @@ def create_profile():
     if response.status_code == 200:
         result = response.json()
         # API возвращает структуру: {"success": true, "data": {"uuid": "..."}}
-        if result.get('success') and result.get('data'):
-            uuid = result['data'].get('uuid')
+        # Проверяем наличие data и uuid напрямую
+        if 'data' in result and result['data'] and 'uuid' in result['data']:
+            uuid = result['data']['uuid']
             print(f"Профиль создан: {uuid}")
             return uuid
         else:
@@ -163,8 +164,9 @@ def start_profile(profile_uuid):
     if response.status_code == 200:
         result = response.json()
         # API возвращает структуру: {"success": true, "data": {"debug_port": ...}}
-        if result.get('success') and result.get('data'):
-            debug_port = result['data'].get('debug_port')
+        # Проверяем наличие data и debug_port напрямую
+        if 'data' in result and result['data'] and 'debug_port' in result['data']:
+            debug_port = result['data']['debug_port']
             print(f"Профиль запущен на порту: {debug_port}")
             return debug_port
         else:
