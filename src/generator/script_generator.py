@@ -287,6 +287,9 @@ if __name__ == "__main__":
         """
         self.reset()
 
+        # Устанавливаем конфигурацию из options
+        self.set_config(options)
+
         # Базовые импорты
         self.add_import("import time")
         self.add_import("import sys")

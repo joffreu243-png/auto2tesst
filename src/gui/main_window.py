@@ -37,9 +37,9 @@ class OctobrowserScriptBuilder:
         # Создание интерфейса
         self.create_widgets()
 
-        # Инициализация API если токен есть
+        # Инициализация API если токен есть (без показа messagebox при старте)
         if self.config.get('octobrowser', {}).get('api_token') != 'YOUR_API_TOKEN_HERE':
-            self.init_api()
+            self.init_api(show_messages=False)
 
     def load_config(self):
         """Загрузка конфигурации"""
@@ -65,15 +65,48 @@ class OctobrowserScriptBuilder:
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(self.config, f, indent=2, ensure_ascii=False)
 
-    def init_api(self):
-        """Инициализация API клиента"""
+    def init_api(self, show_messages: bool = True):
+        """
+        Инициализация API клиента
+
+        Args:
+            show_messages: Показывать ли сообщения об успехе/ошибках
+        """
         try:
             token = self.config['octobrowser']['api_token']
             base_url = self.config['octobrowser']['api_base_url']
             self.api = OctobrowserAPI(token, base_url)
-            self.status_label.config(text="✓ API подключен", foreground="green")
+
+            # Проверяем подключение, получая список профилей
+            self.status_label.config(text="⏳ Проверка подключения...", foreground="orange")
+            self.root.update_idletasks()
+
+            result = self.api.get_profiles(page=0, page_len=1)
+
+            if 'error' in result:
+                error_msg = result.get('error', 'Неизвестная ошибка')
+                status_code = result.get('status_code', '')
+                self.status_label.config(
+                    text=f"✗ Ошибка API ({status_code}): {error_msg}",
+                    foreground="red"
+                )
+                if show_messages:
+                    messagebox.showerror("Ошибка подключения",
+                                       f"Не удалось подключиться к API:\n{error_msg}\n\nПроверьте токен и подключение к интернету.")
+            else:
+                # Получаем общее количество профилей
+                total_profiles = result.get('total', 0)
+                self.status_label.config(
+                    text=f"✓ API подключен | Профилей: {total_profiles}",
+                    foreground="green"
+                )
+                if show_messages:
+                    messagebox.showinfo("Успех",
+                                      f"API успешно подключен!\n\nВсего профилей: {total_profiles}")
         except Exception as e:
-            self.status_label.config(text=f"✗ Ошибка API: {str(e)}", foreground="red")
+            self.status_label.config(text=f"✗ Ошибка: {str(e)}", foreground="red")
+            if show_messages:
+                messagebox.showerror("Ошибка", f"Ошибка инициализации API:\n{str(e)}")
 
     def create_widgets(self):
         """Создание виджетов интерфейса"""
