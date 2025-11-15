@@ -50,8 +50,28 @@ class OctobrowserAPI:
             )
             response.raise_for_status()
             return response.json() if response.text else {}
+        except requests.exceptions.HTTPError as e:
+            # Детальная информация об HTTP ошибках
+            error_details = {
+                "error": str(e),
+                "status_code": e.response.status_code,
+                "url": url,
+                "method": method
+            }
+            try:
+                # Попытка получить детали ошибки из ответа
+                error_body = e.response.json()
+                error_details["api_error"] = error_body
+            except:
+                error_details["response_text"] = e.response.text[:200]
+            return error_details
         except requests.exceptions.RequestException as e:
-            return {"error": str(e), "status_code": getattr(e.response, 'status_code', None)}
+            return {
+                "error": str(e),
+                "status_code": getattr(e.response, 'status_code', None),
+                "url": url,
+                "method": method
+            }
 
     # ==================== PROFILES ====================
 

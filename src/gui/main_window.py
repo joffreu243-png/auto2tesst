@@ -86,13 +86,43 @@ class OctobrowserScriptBuilder:
             if 'error' in result:
                 error_msg = result.get('error', 'Неизвестная ошибка')
                 status_code = result.get('status_code', '')
+                url = result.get('url', '')
+                api_error = result.get('api_error', {})
+
                 self.status_label.config(
-                    text=f"✗ Ошибка API ({status_code}): {error_msg}",
+                    text=f"✗ Ошибка API ({status_code})",
                     foreground="red"
                 )
+
                 if show_messages:
-                    messagebox.showerror("Ошибка подключения",
-                                       f"Не удалось подключиться к API:\n{error_msg}\n\nПроверьте токен и подключение к интернету.")
+                    # Формируем детальное сообщение об ошибке
+                    error_details = f"Не удалось подключиться к API:\n\n"
+                    error_details += f"Код ошибки: {status_code}\n"
+                    error_details += f"Сообщение: {error_msg}\n\n"
+
+                    if url:
+                        error_details += f"URL: {url}\n\n"
+
+                    if api_error:
+                        error_details += f"Детали от API:\n{api_error}\n\n"
+
+                    # Советы по исправлению
+                    if status_code == 400:
+                        error_details += "❗ Возможные причины:\n"
+                        error_details += "- Неверный формат запроса\n"
+                        error_details += "- Проверьте правильность API URL в настройках\n"
+                        error_details += f"- Должен быть: https://app.octobrowser.net/api/v2/automation\n"
+                    elif status_code == 401:
+                        error_details += "❗ Возможные причины:\n"
+                        error_details += "- Неверный API токен\n"
+                        error_details += "- Токен истек или был отозван\n"
+                    elif status_code == 429:
+                        error_details += "❗ Превышен лимит запросов к API\n"
+                        error_details += "Подождите несколько минут и попробуйте снова\n"
+                    else:
+                        error_details += "Проверьте токен и подключение к интернету."
+
+                    messagebox.showerror("Ошибка подключения", error_details)
             else:
                 # Получаем общее количество профилей
                 total_profiles = result.get('total', 0)
@@ -150,12 +180,25 @@ class OctobrowserScriptBuilder:
         api_frame = ttk.LabelFrame(scrollable_frame, text="⚙️ Настройки API", padding=10)
         api_frame.pack(fill=tk.X, padx=5, pady=5)
 
+        # API URL
+        ttk.Label(api_frame, text="API URL:").pack(anchor=tk.W)
+        self.api_url_entry = ttk.Entry(api_frame, width=40)
+        self.api_url_entry.insert(0, self.config['octobrowser']['api_base_url'])
+        self.api_url_entry.pack(fill=tk.X, pady=(0, 5))
+
+        # API Token
         ttk.Label(api_frame, text="API Token:").pack(anchor=tk.W)
         self.api_token_entry = ttk.Entry(api_frame, width=40, show="*")
         self.api_token_entry.insert(0, self.config['octobrowser']['api_token'])
         self.api_token_entry.pack(fill=tk.X, pady=(0, 5))
 
-        ttk.Button(api_frame, text="Подключить API", command=self.connect_api).pack(fill=tk.X)
+        # Кнопки
+        btn_frame = ttk.Frame(api_frame)
+        btn_frame.pack(fill=tk.X, pady=(5, 0))
+
+        ttk.Button(btn_frame, text="Подключить API", command=self.connect_api).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
+        ttk.Button(btn_frame, text="Сбросить", command=self.reset_api_settings).pack(side=tk.LEFT, padx=(2, 0))
+
         self.status_label = ttk.Label(api_frame, text="✗ API не подключен", foreground="red")
         self.status_label.pack(pady=5)
 
@@ -339,13 +382,62 @@ print("Автоматизация выполнена!")
     def connect_api(self):
         """Подключение к API"""
         token = self.api_token_entry.get().strip()
+        url = self.api_url_entry.get().strip()
+
+        # Валидация токена
         if not token or token == 'YOUR_API_TOKEN_HERE':
             messagebox.showwarning("Предупреждение", "Введите корректный API токен")
             return
 
+        # Валидация URL
+        if not url:
+            messagebox.showwarning("Предупреждение", "Введите API URL")
+            return
+
+        if not url.startswith('http'):
+            messagebox.showwarning("Предупреждение",
+                                 "API URL должен начинаться с http:// или https://")
+            return
+
+        # Проверка правильности URL
+        expected_url = "https://app.octobrowser.net/api/v2/automation"
+        if url != expected_url:
+            response = messagebox.askyesno("Нестандартный URL",
+                                          f"Вы используете нестандартный URL:\n{url}\n\n"
+                                          f"Стандартный URL:\n{expected_url}\n\n"
+                                          f"Продолжить с текущим URL?")
+            if not response:
+                return
+
+        # Сохраняем настройки
         self.config['octobrowser']['api_token'] = token
+        self.config['octobrowser']['api_base_url'] = url
         self.save_config()
         self.init_api()
+
+    def reset_api_settings(self):
+        """Сброс настроек API к значениям по умолчанию"""
+        response = messagebox.askyesno("Подтверждение",
+                                      "Сбросить настройки API к значениям по умолчанию?")
+        if response:
+            # Значения по умолчанию
+            default_url = "https://app.octobrowser.net/api/v2/automation"
+            default_token = "YOUR_API_TOKEN_HERE"
+
+            # Обновляем поля
+            self.api_url_entry.delete(0, tk.END)
+            self.api_url_entry.insert(0, default_url)
+
+            self.api_token_entry.delete(0, tk.END)
+            self.api_token_entry.insert(0, default_token)
+
+            # Сохраняем
+            self.config['octobrowser']['api_base_url'] = default_url
+            self.config['octobrowser']['api_token'] = default_token
+            self.save_config()
+
+            self.status_label.config(text="✗ API не подключен", foreground="red")
+            messagebox.showinfo("Готово", "Настройки API сброшены к значениям по умолчанию")
 
     def collect_options(self) -> dict:
         """Сбор всех опций из GUI"""
