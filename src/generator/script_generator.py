@@ -128,9 +128,16 @@ def create_profile():
 
     if response.status_code == 200:
         result = response.json()
+
+        # === ОТЛАДКА ===
+        print(f"DEBUG: type(result) = {type(result)}")
+        print(f"DEBUG: result.keys() = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")
+        print(f"DEBUG: 'data' in result = {'data' in result if isinstance(result, dict) else False}")
+        print(f"DEBUG: result.get('data') = {result.get('data') if isinstance(result, dict) else None}")
+        print(f"DEBUG: Full result = {result}")
+
         # API возвращает структуру: {"success": true, "data": {"uuid": "..."}}
-        # Проверяем наличие data и uuid напрямую
-        if 'data' in result and result['data'] and 'uuid' in result['data']:
+        if isinstance(result, dict) and 'data' in result and result['data'] and 'uuid' in result['data']:
             uuid = result['data']['uuid']
             print(f"Профиль создан: {uuid}")
             return uuid
@@ -163,9 +170,14 @@ def start_profile(profile_uuid):
 
     if response.status_code == 200:
         result = response.json()
+
+        # === ОТЛАДКА ===
+        print(f"DEBUG START: type(result) = {type(result)}")
+        print(f"DEBUG START: result.keys() = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")
+        print(f"DEBUG START: Full result = {result}")
+
         # API возвращает структуру: {"success": true, "data": {"debug_port": ...}}
-        # Проверяем наличие data и debug_port напрямую
-        if 'data' in result and result['data'] and 'debug_port' in result['data']:
+        if isinstance(result, dict) and 'data' in result and result['data'] and 'debug_port' in result['data']:
             debug_port = result['data']['debug_port']
             print(f"Профиль запущен на порту: {debug_port}")
             return debug_port
