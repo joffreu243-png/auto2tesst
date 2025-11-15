@@ -3,6 +3,13 @@
 """
 from typing import Dict, List, Optional
 from datetime import datetime
+import sys
+from pathlib import Path
+
+# Добавляем путь к модулям проекта
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from data.template_engine import TemplateEngine
 
 
 class ScriptGenerator:
@@ -12,6 +19,7 @@ class ScriptGenerator:
         self.imports = set()
         self.code_blocks = []
         self.config = {}
+        self.template_engine = TemplateEngine()
 
     def reset(self):
         """Сброс состояния генератора"""
@@ -398,6 +406,216 @@ if __name__ == "__main__":
         lines = code.split('\n')
         return '\n'.join([indent + line if line.strip() else line for line in lines])
 
+    def _generate_data_loader(self, data_file_path: str) -> str:
+        """Генерация кода загрузки данных из CSV"""
+        code = f'''
+def load_data_from_csv(csv_path):
+    """Загрузка данных из CSV файла"""
+    import csv
+
+    data_rows = []
+    with open(csv_path, 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        data_rows = list(reader)
+
+    print(f"Загружено {{len(data_rows)}} строк данных из CSV")
+    return data_rows
+
+# Путь к файлу с данными
+DATA_FILE = r"{data_file_path}"
+'''
+        return code
+
+    def _generate_parametrized_main_function(self, user_code: str, use_profile_creation: bool,
+                                            use_selenium: bool, cleanup_profile: bool,
+                                            use_cookies: bool = False, use_bookmarks: bool = False,
+                                            use_extensions: bool = False,
+                                            data_file_path: Optional[str] = None) -> str:
+        """Генерация главной функции с параметризацией"""
+
+        code = '''
+def run_automation_iteration(iteration_number, data_row):
+    """
+    Запуск одной итерации автоматизации с конкретными данными
+
+    Args:
+        iteration_number: Номер итерации (начиная с 1)
+        data_row: Словарь с данными для этой итерации
+    """
+    profile_uuid = None
+    driver = None
+
+    print(f"\\n{'='*60}")
+    print(f"Итерация #{iteration_number}")
+    print(f"Данные: {data_row}")
+    print(f"{'='*60}\\n")
+
+    try:
+'''
+
+        # Создание профиля
+        if use_profile_creation:
+            code += '''        # Создание профиля
+        profile_uuid = create_profile()
+        if not profile_uuid:
+            print("Не удалось создать профиль")
+            return False
+
+'''
+
+        # Добавление cookies
+        if use_cookies:
+            code += '''        # Добавление cookies
+        if 'PREDEFINED_COOKIES' in globals() and PREDEFINED_COOKIES:
+            add_cookies(profile_uuid, PREDEFINED_COOKIES)
+
+'''
+
+        # Добавление bookmarks
+        if use_bookmarks:
+            code += '''        # Добавление закладок
+        if 'PREDEFINED_BOOKMARKS' in globals() and PREDEFINED_BOOKMARKS:
+            add_bookmarks(profile_uuid, PREDEFINED_BOOKMARKS)
+
+'''
+
+        # Добавление extensions
+        if use_extensions:
+            code += '''        # Добавление расширений
+        if 'PREDEFINED_EXTENSIONS' in globals() and PREDEFINED_EXTENSIONS:
+            for ext_path in PREDEFINED_EXTENSIONS:
+                add_extension(profile_uuid, ext_path)
+
+'''
+
+        # Запуск профиля
+        if use_profile_creation:
+            code += '''        # Запуск профиля
+        debug_port = start_profile(profile_uuid)
+        if not debug_port:
+            print("Не удалось запустить профиль")
+            return False
+
+'''
+
+        # Подключение Selenium
+        if use_selenium:
+            code += '''        # Подключение Selenium
+        driver = connect_selenium(debug_port)
+
+'''
+
+        # Пользовательский код с заменой переменных
+        if user_code.strip():
+            # Находим все переменные в коде пользователя
+            variables = self.template_engine.find_variables(user_code)
+
+            if variables:
+                code += '''        # Подготовка переменных из данных
+'''
+                for var in variables:
+                    code += f'''        {var} = data_row.get('{var}', '')
+'''
+                code += '\n'
+
+            # Заменяем {{variable}} на просто variable (переменную Python)
+            user_code_processed = user_code
+            for var in variables:
+                user_code_processed = user_code_processed.replace(f'{{{{{var}}}}}', var)
+
+            code += f'''        # Пользовательский код автоматизации
+{self._indent_code(user_code_processed, 2)}
+
+'''
+
+        code += '''        print(f"Итерация #{iteration_number} успешно завершена")
+        return True
+
+    except Exception as e:
+        print(f"Ошибка в итерации #{iteration_number}: {{e}}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+    finally:
+'''
+
+        if use_selenium:
+            code += '''        # Закрытие браузера
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
+
+'''
+
+        if cleanup_profile:
+            code += '''        # Остановка профиля
+        if profile_uuid:
+            try:
+                stop_profile(profile_uuid)
+            except:
+                pass
+
+'''
+
+        code += '''
+
+def main():
+    """Главная функция с мультизапуском"""
+    try:
+        # Загрузка данных
+        data_rows = load_data_from_csv(DATA_FILE)
+
+        if not data_rows:
+            print("Нет данных для обработки!")
+            return
+
+        # Статистика
+        total_iterations = len(data_rows)
+        successful_iterations = 0
+        failed_iterations = 0
+
+        print(f"Запуск автоматизации для {total_iterations} строк данных\\n")
+
+        # Запуск для каждой строки данных
+        for i, data_row in enumerate(data_rows, start=1):
+            success = run_automation_iteration(i, data_row)
+
+            if success:
+                successful_iterations += 1
+            else:
+                failed_iterations += 1
+
+            # Пауза между итерациями
+            if i < total_iterations:
+                print("\\nПауза 2 секунды перед следующей итерацией...")
+                time.sleep(2)
+
+        # Итоговая статистика
+        print(f"\\n{'='*60}")
+        print(f"ИТОГО:")
+        print(f"Всего итераций: {total_iterations}")
+        print(f"Успешных: {successful_iterations}")
+        print(f"С ошибками: {failed_iterations}")
+        print(f"{'='*60}")
+
+    except FileNotFoundError:
+        print(f"Ошибка: файл с данными не найден: {DATA_FILE}")
+        print("Создайте CSV файл с данными!")
+    except Exception as e:
+        print(f"Критическая ошибка: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+        return code
+
     def generate_script(self, options: Dict, user_code: str = "") -> str:
         """
         Генерация полного скрипта
@@ -422,6 +640,10 @@ if __name__ == "__main__":
         script += self._generate_imports()
         script += self._generate_config_section()
 
+        # Если включена параметризация - добавляем загрузчик данных
+        if options.get('use_parametrization', False) and options.get('data_file_path'):
+            script += self._generate_data_loader(options.get('data_file_path'))
+
         # Добавляем функции в зависимости от опций
         if options.get('create_profile', False):
             script += self._generate_profile_creation(options.get('profile_config', {}))
@@ -443,15 +665,27 @@ if __name__ == "__main__":
         if options.get('use_selenium', False):
             script += self._generate_selenium_connection()
 
-        # Главная функция
-        script += self._generate_main_function(
-            user_code,
-            options.get('create_profile', False),
-            options.get('use_selenium', False),
-            options.get('cleanup_profile', False),
-            options.get('use_cookies', False),
-            options.get('use_bookmarks', False),
-            options.get('use_extensions', False)
-        )
+        # Главная функция: параметризованная или обычная
+        if options.get('use_parametrization', False):
+            script += self._generate_parametrized_main_function(
+                user_code,
+                options.get('create_profile', False),
+                options.get('use_selenium', False),
+                options.get('cleanup_profile', False),
+                options.get('use_cookies', False),
+                options.get('use_bookmarks', False),
+                options.get('use_extensions', False),
+                options.get('data_file_path')
+            )
+        else:
+            script += self._generate_main_function(
+                user_code,
+                options.get('create_profile', False),
+                options.get('use_selenium', False),
+                options.get('cleanup_profile', False),
+                options.get('use_cookies', False),
+                options.get('use_bookmarks', False),
+                options.get('use_extensions', False)
+            )
 
         return script

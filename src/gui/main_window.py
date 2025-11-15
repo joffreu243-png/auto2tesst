@@ -392,6 +392,51 @@ C:/path/to/extension2.crx''')
         ttk.Checkbutton(framework_frame, text="Использовать Selenium",
                        variable=self.use_selenium_var).pack(anchor=tk.W)
 
+        # === ПАРАМЕТРИЗАЦИЯ И МУЛЬТИЗАПУСК ===
+        param_frame = ttk.LabelFrame(scrollable_frame, text="🔄 Параметризация и мультизапуск", padding=10)
+        param_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.use_parametrization_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(param_frame, text="Использовать параметризацию (мультизапуск с данными из CSV)",
+                       variable=self.use_parametrization_var,
+                       command=self.toggle_parametrization_options).pack(anchor=tk.W)
+
+        self.param_options_frame = ttk.Frame(param_frame)
+        self.param_options_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        # Путь к CSV файлу
+        ttk.Label(self.param_options_frame, text="CSV файл с данными:").pack(anchor=tk.W, pady=(5, 0))
+
+        csv_path_frame = ttk.Frame(self.param_options_frame)
+        csv_path_frame.pack(fill=tk.X, pady=(0, 5))
+
+        self.csv_path_entry = ttk.Entry(csv_path_frame, width=30)
+        self.csv_path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        ttk.Button(csv_path_frame, text="📁 Выбрать", command=self.select_csv_file, width=10).pack(side=tk.LEFT, padx=(5, 0))
+
+        # Кнопка создания примера
+        ttk.Button(self.param_options_frame, text="📄 Создать пример CSV",
+                  command=self.create_sample_csv).pack(anchor=tk.W, pady=(0, 5))
+
+        # Инфо о переменных
+        ttk.Label(self.param_options_frame, text="💡 Используйте {{variable_name}} в коде для параметризации",
+                 foreground="blue").pack(anchor=tk.W, pady=(5, 0))
+
+        ttk.Label(self.param_options_frame,
+                 text="Пример: driver.find_element(By.ID, 'search').send_keys({{search_query}})",
+                 font=("Consolas", 8), foreground="gray").pack(anchor=tk.W)
+
+        # Найденные переменные
+        ttk.Label(self.param_options_frame, text="Найденные переменные в коде:").pack(anchor=tk.W, pady=(10, 0))
+        self.variables_listbox = tk.Listbox(self.param_options_frame, height=4, font=("Consolas", 9))
+        self.variables_listbox.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Button(self.param_options_frame, text="🔍 Обновить список переменных",
+                  command=self.update_variables_list).pack(anchor=tk.W)
+
+        self.toggle_parametrization_options()
+
     def create_right_panel(self, parent):
         """Создание правой панели с кодом"""
         # Верхняя часть - редактор кода
@@ -415,6 +460,13 @@ element = driver.find_element(By.ID, "some-button")
 element.click()
 
 print("Автоматизация выполнена!")
+
+# === Пример с параметризацией ===
+# Используйте {{variable}} для подстановки данных из CSV
+# Например:
+# search_input = driver.find_element(By.ID, "search")
+# search_input.send_keys({{search_query}})
+# print(f"Поиск: {{search_query}}")
 '''
         self.code_editor.insert("1.0", example_code)
 
@@ -484,6 +536,111 @@ print("Автоматизация выполнена!")
         for child in self.extensions_options_frame.winfo_children():
             if isinstance(child, scrolledtext.ScrolledText):
                 child.configure(state=state)
+
+    def toggle_parametrization_options(self):
+        """Переключение опций параметризации"""
+        state = "normal" if self.use_parametrization_var.get() else "disabled"
+
+        # Включение/выключение всех элементов управления
+        for child in self.param_options_frame.winfo_children():
+            try:
+                if isinstance(child, (ttk.Entry, ttk.Button, tk.Listbox)):
+                    child.configure(state=state)
+                elif isinstance(child, ttk.Frame):
+                    # Для фреймов обрабатываем дочерние элементы
+                    for subchild in child.winfo_children():
+                        if isinstance(subchild, (ttk.Entry, ttk.Button)):
+                            subchild.configure(state=state)
+            except:
+                pass
+
+    def select_csv_file(self):
+        """Выбор CSV файла"""
+        from tkinter import filedialog
+
+        file_path = filedialog.askopenfilename(
+            title="Выберите CSV файл с данными",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+
+        if file_path:
+            self.csv_path_entry.delete(0, tk.END)
+            self.csv_path_entry.insert(0, file_path)
+
+            # Попробуем загрузить и показать превью
+            try:
+                from src.data.data_source import DataSource
+
+                ds = DataSource(file_path)
+                messagebox.showinfo(
+                    "CSV загружен",
+                    f"Файл успешно загружен!\n\n"
+                    f"Количество строк: {ds.get_row_count()}\n"
+                    f"Колонки: {', '.join(ds.get_headers())}"
+                )
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось загрузить CSV:\n{str(e)}")
+
+    def create_sample_csv(self):
+        """Создание примера CSV файла"""
+        from tkinter import filedialog
+        from src.data.data_source import DataSource
+
+        file_path = filedialog.asksaveasfilename(
+            title="Сохранить пример CSV",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+
+        if file_path:
+            try:
+                ds = DataSource()
+                ds.create_sample_csv(file_path)
+
+                messagebox.showinfo(
+                    "Успех",
+                    f"Пример CSV создан:\n{file_path}\n\n"
+                    "Содержит примеры колонок:\n"
+                    "- search_query\n"
+                    "- quantity\n"
+                    "- color\n\n"
+                    "Отредактируйте файл под свои нужды!"
+                )
+
+                # Автоматически вставляем путь
+                self.csv_path_entry.delete(0, tk.END)
+                self.csv_path_entry.insert(0, file_path)
+
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось создать файл:\n{str(e)}")
+
+    def update_variables_list(self):
+        """Обновление списка найденных переменных"""
+        from src.data.template_engine import TemplateEngine
+
+        # Получаем код пользователя
+        user_code = self.code_editor.get("1.0", tk.END).strip()
+
+        # Находим переменные
+        engine = TemplateEngine()
+        variables = engine.find_variables(user_code)
+
+        # Обновляем listbox
+        self.variables_listbox.delete(0, tk.END)
+
+        if variables:
+            for var in sorted(variables):
+                self.variables_listbox.insert(tk.END, f"{{{{ {var} }}}}")
+        else:
+            self.variables_listbox.insert(tk.END, "(переменные не найдены)")
+
+        # Показываем количество
+        messagebox.showinfo(
+            "Найденные переменные",
+            f"Найдено переменных: {len(variables)}\n\n" +
+            (f"Переменные:\n" + "\n".join([f"- {{{{{v}}}}}" for v in sorted(variables)])
+             if variables else "Используйте {{variable_name}} в коде")
+        )
 
     def connect_api(self):
         """Подключение к API"""
@@ -612,6 +769,13 @@ print("Автоматизация выполнена!")
             extensions_text = self.extensions_text.get("1.0", tk.END).strip()
             if extensions_text:
                 options['extensions_data'] = [line.strip() for line in extensions_text.split('\n') if line.strip()]
+
+        # Параметризация
+        options['use_parametrization'] = self.use_parametrization_var.get()
+        if self.use_parametrization_var.get():
+            csv_path = self.csv_path_entry.get().strip()
+            if csv_path:
+                options['data_file_path'] = csv_path
 
         return options
 
