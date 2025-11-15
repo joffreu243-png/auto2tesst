@@ -94,11 +94,19 @@ def create_profile():
         if profile_config.get('title'):
             code += f"        'title': '{profile_config['title']}',\n"
 
+        # Fingerprint - ОБЯЗАТЕЛЬНОЕ ПОЛЕ
+        # Если не указан, создаем дефолтный
+        if profile_config.get('fingerprint'):
+            fp = profile_config['fingerprint']
+            # Исправляем структуру: os_type -> os
+            os_value = fp.get('os_type', 'win')
+            code += f"        'fingerprint': {{'os': '{os_value}'}},\n"
+        else:
+            # Дефолтный fingerprint если не указан
+            code += f"        'fingerprint': {{'os': 'win'}},\n"
+
         if profile_config.get('tags'):
             code += f"        'tags': {profile_config['tags']},\n"
-
-        if profile_config.get('fingerprint'):
-            code += f"        'fingerprint': {profile_config['fingerprint']},\n"
 
         if profile_config.get('proxy'):
             proxy = profile_config['proxy']
@@ -355,10 +363,18 @@ def main():
 
 '''
 
-        # Подключение Selenium
-        if use_selenium:
+        # Подключение Selenium (только если профиль создается)
+        if use_selenium and use_profile_creation:
             code += '''        # Подключение Selenium
         driver = connect_selenium(debug_port)
+
+'''
+        elif use_selenium and not use_profile_creation:
+            # Если Selenium включен, но профиль не создается - предупреждение
+            code += '''        # ВНИМАНИЕ: Selenium требует создания профиля!
+        # Включите "Создать новый профиль" для использования Selenium
+        print("ОШИБКА: Невозможно подключить Selenium без создания профиля")
+        return
 
 '''
 
@@ -498,10 +514,17 @@ def run_automation_iteration(iteration_number, data_row):
 
 '''
 
-        # Подключение Selenium
-        if use_selenium:
+        # Подключение Selenium (только если профиль создается)
+        if use_selenium and use_profile_creation:
             code += '''        # Подключение Selenium
         driver = connect_selenium(debug_port)
+
+'''
+        elif use_selenium and not use_profile_creation:
+            # Если Selenium включен, но профиль не создается - предупреждение
+            code += '''        # ВНИМАНИЕ: Selenium требует создания профиля!
+        print("ОШИБКА: Невозможно подключить Selenium без создания профиля")
+        return False
 
 '''
 
