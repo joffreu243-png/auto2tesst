@@ -125,14 +125,32 @@ class OctobrowserScriptBuilder:
                     messagebox.showerror("Ошибка подключения", error_details)
             else:
                 # Получаем общее количество профилей
-                total_profiles = result.get('total', 0)
+                # Проверяем разные возможные ключи для количества
+                total_profiles = result.get('total',
+                                           result.get('count',
+                                           result.get('total_count', 0)))
+
+                # Если total = 0, возможно профили в списке data
+                if total_profiles == 0 and 'data' in result:
+                    total_profiles = len(result.get('data', []))
+
                 self.status_label.config(
                     text=f"✓ API подключен | Профилей: {total_profiles}",
                     foreground="green"
                 )
                 if show_messages:
-                    messagebox.showinfo("Успех",
-                                      f"API успешно подключен!\n\nВсего профилей: {total_profiles}")
+                    # Показываем дополнительную информацию для отладки
+                    debug_info = f"API успешно подключен!\n\n"
+                    debug_info += f"Всего профилей: {total_profiles}\n\n"
+
+                    # Показываем структуру ответа для отладки
+                    if total_profiles == 0:
+                        debug_info += "📊 Структура ответа API:\n"
+                        debug_info += f"Ключи: {', '.join(result.keys())}\n\n"
+                        if 'data' in result:
+                            debug_info += f"Элементов в data: {len(result.get('data', []))}\n"
+
+                    messagebox.showinfo("Успех", debug_info)
         except Exception as e:
             self.status_label.config(text=f"✗ Ошибка: {str(e)}", foreground="red")
             if show_messages:
