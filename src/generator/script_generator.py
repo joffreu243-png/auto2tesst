@@ -208,7 +208,7 @@ def start_profile(profile_uuid):
     url = f"{API_BASE_URL}/profiles/{profile_uuid}/start"
     print(f"DEBUG START: Запрос к URL = {url}")
 
-    response = requests.post(url, headers=headers)
+    response = requests.post(url, headers=headers, json={})
 
     print(f"DEBUG START: HTTP Status Code = {response.status_code}")
     print(f"DEBUG START: Response Text = {response.text}")
@@ -268,7 +268,8 @@ def stop_profile(profile_uuid):
 
     response = requests.post(
         f"{API_BASE_URL}/profiles/{profile_uuid}/stop",
-        headers=headers
+        headers=headers,
+        json={}
     )
 
     if response.status_code in [200, 201]:
