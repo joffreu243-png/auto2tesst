@@ -266,16 +266,35 @@ def start_profile(profile_uuid):
         """Генерация кода подключения Selenium"""
         code = '''
 def connect_selenium(debug_port):
-    """Подключение Selenium к профилю"""
+    """Подключение Selenium к профилю с повторными попытками"""
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
+    import time
 
     options = Options()
     options.add_experimental_option("debuggerAddress", f"127.0.0.1:{debug_port}")
 
-    driver = webdriver.Chrome(options=options)
-    print("Selenium подключен к профилю")
-    return driver
+    # Ждем инициализации браузера
+    print(f"Ожидание инициализации Chrome DevTools на порту {debug_port}...")
+    time.sleep(5)  # Даем браузеру время на полную инициализацию
+
+    # Пытаемся подключиться с повторными попытками
+    max_attempts = 5
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print(f"Попытка подключения Selenium {attempt}/{max_attempts}...")
+            driver = webdriver.Chrome(options=options)
+            print("[OK] Selenium успешно подключен к профилю")
+            return driver
+        except Exception as e:
+            if attempt < max_attempts:
+                wait_time = attempt * 2  # Экспоненциальная задержка: 2, 4, 6, 8 секунд
+                print(f"[ПРЕДУПРЕЖДЕНИЕ] Не удалось подключиться: {e}")
+                print(f"Повторная попытка через {wait_time} секунд...")
+                time.sleep(wait_time)
+            else:
+                print(f"[ОШИБКА] Не удалось подключить Selenium после {max_attempts} попыток")
+                raise
 
 '''
         return code
