@@ -806,6 +806,19 @@ except Exception as e:
             options = self.collect_options()
             user_code = self.code_editor.get("1.0", tk.END).strip()
 
+            # Валидация пользовательского кода (базовая проверка синтаксиса Python)
+            if user_code:
+                try:
+                    # Пытаемся скомпилировать код как Python
+                    compile(user_code, '<user_code>', 'exec')
+                except SyntaxError as e:
+                    error_msg = f"Ошибка синтаксиса в вашем коде автоматизации:\n\n"
+                    error_msg += f"Строка {e.lineno}: {e.msg}\n"
+                    error_msg += f"Текст: {e.text}\n\n"
+                    error_msg += "Исправьте код и попробуйте снова."
+                    messagebox.showerror("Синтаксическая ошибка", error_msg)
+                    return
+
             # Генерация
             script_content = self.generator.generate_script(options, user_code)
 
