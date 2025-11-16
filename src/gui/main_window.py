@@ -141,6 +141,8 @@ class OctobrowserScriptBuilder:
                     # Показываем дополнительную информацию для отладки
                     debug_info = f"API успешно подключен!\n\n"
                     debug_info += f"Всего профилей: {total_profiles}\n\n"
+                    debug_info += f"✓ API токен сохранен в config.json\n"
+                    debug_info += f"Теперь не нужно вводить токен при каждом запуске!"
 
                     # Показываем структуру ответа для отладки
                     if total_profiles == 0:
@@ -678,11 +680,13 @@ except Exception as e:
             if not response:
                 return
 
-        # Сохраняем настройки
+        # Сохраняем настройки в config.json
         self.config['octobrowser']['api_token'] = token
         self.config['octobrowser']['api_base_url'] = url
         self.save_config()
-        self.init_api()
+
+        # Подключаемся к API (с показом сообщений)
+        self.init_api(show_messages=True)
 
     def reset_api_settings(self):
         """Сброс настроек API к значениям по умолчанию"""
