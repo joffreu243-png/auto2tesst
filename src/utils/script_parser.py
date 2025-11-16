@@ -240,12 +240,47 @@ class ScriptParser:
         """Генерирует конвертированный код"""
         code_lines = []
 
+        # Проверить есть ли custom_xpath селекторы (требуют замены)
+        has_custom_selectors = any(
+            action.get('selector', {}).get('type') == 'custom_xpath'
+            for action in actions
+        )
+
+        if has_custom_selectors:
+            code_lines.append('# ⚠️ ВНИМАНИЕ! СЕЛЕКТОРЫ ТРЕБУЮТ ЗАМЕНЫ!')
+            code_lines.append('#')
+            code_lines.append('# Импортированный скрипт использует внутренние ID расширения,')
+            code_lines.append('# которые НЕ РАБОТАЮТ напрямую. Вам нужно заменить селекторы')
+            code_lines.append('# на реальные XPath/CSS/ID элементов.')
+            code_lines.append('#')
+            code_lines.append('# КАК НАЙТИ ПРАВИЛЬНЫЕ СЕЛЕКТОРЫ:')
+            code_lines.append('# 1. Откройте страницу в браузере')
+            code_lines.append('# 2. Нажмите F12 (DevTools)')
+            code_lines.append('# 3. Нажмите Ctrl+Shift+C (инспектор элементов)')
+            code_lines.append('# 4. Кликните на нужный элемент')
+            code_lines.append('# 5. В DevTools правой кнопкой -> Copy -> Copy XPath (или Copy selector)')
+            code_lines.append('# 6. Замените селектор ниже на скопированный')
+            code_lines.append('#')
+            code_lines.append('# ПРИОРИТЕТ СЕЛЕКТОРОВ (от лучшего к худшему):')
+            code_lines.append('# 1. By.ID - если у элемента есть id="..."')
+            code_lines.append('# 2. By.NAME - если у элемента есть name="..."')
+            code_lines.append('# 3. By.CSS_SELECTOR - для простых классов')
+            code_lines.append('# 4. By.XPATH - только если нет других вариантов')
+            code_lines.append('#')
+            code_lines.append('# ПРИМЕР ЗАМЕНЫ:')
+            code_lines.append('# БЫЛО: (By.XPATH, "//custom[@id=\\"ABC123\\"]")')
+            code_lines.append('# СТАЛО: (By.ID, "firstName")  # если у поля id="firstName"')
+            code_lines.append('# ИЛИ:    (By.NAME, "first_name")  # если name="first_name"')
+            code_lines.append('# ИЛИ:    (By.XPATH, "//input[@placeholder=\'First name\']")')
+            code_lines.append('')
+
         # Добавить driver.get() в начало (если есть URL)
         if actions and actions[0].get('type') != 'navigate':
             code_lines.append('# Переход на страницу')
             code_lines.append('# ВАЖНО: Укажите правильный URL!')
             code_lines.append('driver.get("https://example.com")')
-            code_lines.append('time.sleep(2)')
+            code_lines.append('# Случайная задержка для имитации реального пользователя')
+            code_lines.append('time.sleep(random.uniform(2, 4))')
             code_lines.append('')
 
         # Индекс для переменных
@@ -260,35 +295,63 @@ class ScriptParser:
 
             elif action['type'] == 'click':
                 selector_str = action["selector"]["selector"].replace('"', '\\"')
+
+                # Добавить предупреждение если это custom селектор
+                if action["selector"]["type"] == 'custom_xpath':
+                    code_lines.append('# ⚠️ ЗАМЕНИТЕ этот селектор на реальный!')
+                    code_lines.append('# Пример: (By.ID, "submitButton") или (By.NAME, "submit")')
+
                 code_lines.append('# Клик по элементу')
-                code_lines.append('element = WebDriverWait(driver, 10).until(')
+                code_lines.append('# Увеличенный таймаут 30 сек для медленных прокси')
+                code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.element_to_be_clickable(({action["selector"]["by"]}, "{selector_str}"))')
                 code_lines.append(')')
                 code_lines.append('element.click()')
-                code_lines.append('time.sleep(1)')
+                code_lines.append('print("✓ Клик выполнен")')
+                code_lines.append('# Случайная задержка 2-4 сек (антибот защита)')
+                code_lines.append('time.sleep(random.uniform(2, 4))')
                 code_lines.append('')
 
             elif action['type'] == 'type':
                 var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
                 selector_str = action["selector"]["selector"].replace('"', '\\"')
+
+                # Добавить предупреждение если это custom селектор
+                if action["selector"]["type"] == 'custom_xpath':
+                    code_lines.append(f'# ⚠️ ЗАМЕНИТЕ этот селектор на реальный!')
+                    code_lines.append(f'# Это поле для ввода: {{{{{var_name}}}}}')
+                    code_lines.append(f'# Пример: (By.ID, "{var_name}") или (By.NAME, "{var_name}")')
+
                 code_lines.append(f'# Ввод текста: {{{{{var_name}}}}}')
-                code_lines.append('element = WebDriverWait(driver, 10).until(')
+                code_lines.append('# Увеличенный таймаут 30 сек для медленных прокси')
+                code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.presence_of_element_located(({action["selector"]["by"]}, "{selector_str}"))')
                 code_lines.append(')')
+                code_lines.append(f'element.clear()  # Очистить поле перед вводом')
                 code_lines.append(f'element.send_keys("{{{{{var_name}}}}}")')
-                code_lines.append(f'print(f"Введено: {{{{{var_name}}}}}")')
-                code_lines.append('time.sleep(1)')
+                code_lines.append(f'print(f"✓ Введено: {{{{{var_name}}}}}")')
+                code_lines.append('# Случайная задержка 1.5-3 сек (имитация печати человеком)')
+                code_lines.append('time.sleep(random.uniform(1.5, 3))')
                 code_lines.append('')
                 var_index += 1
 
             elif action['type'] == 'submit':
                 selector_str = action["selector"]["selector"].replace('"', '\\"')
+
+                # Добавить предупреждение если это custom селектор
+                if action["selector"]["type"] == 'custom_xpath':
+                    code_lines.append('# ⚠️ ЗАМЕНИТЕ этот селектор на реальный!')
+                    code_lines.append('# Пример: (By.XPATH, "//button[@type=\'submit\']")')
+
                 code_lines.append('# Отправка формы')
-                code_lines.append('element = WebDriverWait(driver, 10).until(')
+                code_lines.append('# Увеличенный таймаут 30 сек для медленных прокси')
+                code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.presence_of_element_located(({action["selector"]["by"]}, "{selector_str}"))')
                 code_lines.append(')')
                 code_lines.append('element.submit()')
-                code_lines.append('time.sleep(2)')
+                code_lines.append('print("✓ Форма отправлена")')
+                code_lines.append('# Задержка 3-5 сек после отправки формы')
+                code_lines.append('time.sleep(random.uniform(3, 5))')
                 code_lines.append('')
 
         return '\n'.join(code_lines)

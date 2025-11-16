@@ -979,6 +979,27 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                 # Парсим скрипт
                 self.imported_data = self.parser.parse_external_script(code)
 
+                # Проверить есть ли custom селекторы (требуют замены)
+                has_custom_selectors = 'custom[@id=' in self.imported_data['converted_code']
+
+                if has_custom_selectors:
+                    warning_msg = "⚠️ ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ!\n\n"
+                    warning_msg += "Импортированный скрипт содержит внутренние ID расширения,\n"
+                    warning_msg += "которые НЕ РАБОТАЮТ напрямую на сайте.\n\n"
+                    warning_msg += "ВАМ НУЖНО ВРУЧНУЮ ЗАМЕНИТЬ СЕЛЕКТОРЫ:\n\n"
+                    warning_msg += "1. Откройте вашу тестовую страницу в браузере\n"
+                    warning_msg += "2. Нажмите F12 (откроется DevTools)\n"
+                    warning_msg += "3. Нажмите Ctrl+Shift+C (инспектор элементов)\n"
+                    warning_msg += "4. Кликните на нужный элемент (поле ввода/кнопку)\n"
+                    warning_msg += "5. В DevTools: правая кнопка → Copy → Copy XPath\n"
+                    warning_msg += "6. В редакторе кода замените селектор на скопированный\n\n"
+                    warning_msg += "ПРИОРИТЕТ СЕЛЕКТОРОВ:\n"
+                    warning_msg += "✅ By.ID - лучший вариант (если у элемента есть id)\n"
+                    warning_msg += "✅ By.NAME - хороший вариант (если есть name)\n"
+                    warning_msg += "⚠️ By.XPATH - только если нет ID/NAME\n\n"
+                    warning_msg += "В коде есть комментарии с инструкциями!\n"
+                    messagebox.showwarning("Требуется замена селекторов", warning_msg)
+
                 if not self.imported_data['values']:
                     messagebox.showinfo("Информация",
                                       "Скрипт импортирован, но не найдены значения для параметризации.\n"
