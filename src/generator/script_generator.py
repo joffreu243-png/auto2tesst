@@ -201,43 +201,58 @@ def start_profile(profile_uuid):
     print(f"Ожидание инициализации профиля {profile_uuid}...")
     time.sleep(2)
 
-    # Используем ЛОКАЛЬНЫЙ API для запуска браузера
-    url = f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start"
-    print(f"DEBUG START: Запрос к ЛОКАЛЬНОМУ API = {url}")
+    # Пробуем разные варианты endpoint для локального API
+    endpoints_to_try = [
+        f"{LOCAL_API_BASE_URL}/automation/profiles/{profile_uuid}/start",
+        f"http://localhost:58888/api/automation/profiles/{profile_uuid}/start",
+        f"http://localhost:58888/automation/profiles/{profile_uuid}/start",
+        f"http://localhost:35000/api/v1/automation/profiles/{profile_uuid}/start",
+        f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start",
+    ]
 
-    try:
-        response = requests.post(url, json={}, timeout=10)
+    for i, url in enumerate(endpoints_to_try, 1):
+        print(f"[{i}/{len(endpoints_to_try)}] Попытка: {url}")
 
-        print(f"DEBUG START: HTTP Status Code = {response.status_code}")
-        print(f"DEBUG START: Response Text = {response.text}")
+        try:
+            response = requests.post(url, json={}, timeout=5)
+            print(f"  Status: {response.status_code}")
 
-        if response.status_code in [200, 201]:
-            result = response.json()
+            if response.status_code in [200, 201]:
+                result = response.json()
+                print(f"  Response: {result}")
 
-            # === ОТЛАДКА ===
-            print(f"DEBUG START: type(result) = {type(result)}")
-            print(f"DEBUG START: result.keys() = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")
-            print(f"DEBUG START: Full result = {result}")
+                # Пробуем разные форматы ответа
+                debug_port = None
+                if isinstance(result, dict):
+                    if 'data' in result and isinstance(result['data'], dict):
+                        debug_port = result['data'].get('debug_port') or result['data'].get('port') or result['data'].get('ws_endpoint')
+                    elif 'debug_port' in result:
+                        debug_port = result['debug_port']
+                    elif 'port' in result:
+                        debug_port = result['port']
 
-            # API возвращает структуру: {"success": true, "data": {"debug_port": ...}}
-            if isinstance(result, dict) and 'data' in result and result['data'] and 'debug_port' in result['data']:
-                debug_port = result['data']['debug_port']
-                print(f"Профиль запущен на порту: {debug_port}")
-                return debug_port
+                if debug_port:
+                    print(f"[OK] Профиль запущен на порту: {debug_port}")
+                    return debug_port
+                else:
+                    print(f"  [ПРЕДУПРЕЖДЕНИЕ] Успешный ответ, но debug_port не найден")
+            elif response.status_code == 404:
+                print(f"  [404] Endpoint не найден")
             else:
-                print(f"Ошибка запуска профиля: {response.text}")
-                return None
-        else:
-            print(f"Ошибка запуска профиля: {response.text}")
-            return None
-    except requests.exceptions.ConnectionError:
-        print(f"[ОШИБКА] Не удалось подключиться к локальному API Octobrowser")
-        print(f"[РЕШЕНИЕ] Убедитесь, что приложение Octobrowser ЗАПУЩЕНО на компьютере")
-        print(f"[ПОДСКАЗКА] Локальный API должен быть доступен на http://localhost:58888")
-        return None
-    except Exception as e:
-        print(f"[ОШИБКА] Неожиданная ошибка: {e}")
-        return None
+                print(f"  [ОШИБКА] {response.text[:100]}")
+
+        except requests.exceptions.ConnectionError:
+            print(f"  [CONNECTION ERROR] Не удалось подключиться")
+        except Exception as e:
+            print(f"  [ERROR] {str(e)[:80]}")
+
+    print(f"")
+    print(f"[КРИТИЧЕСКАЯ ОШИБКА] Не удалось запустить профиль")
+    print(f"[ПОДСКАЗКА] Попробуйте:")
+    print(f"  1. Запустить профиль вручную в Octobrowser GUI")
+    print(f"  2. Проверить логи Octobrowser на наличие правильного API endpoint")
+    print(f"  3. Убедиться, что локальный API включен в настройках Octobrowser")
+    return None
 
 '''
         return code
