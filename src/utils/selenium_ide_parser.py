@@ -320,7 +320,7 @@ class SeleniumIDEParser:
                 code_lines.append(f'    EC.element_to_be_clickable(({selector["by"]}, "{selector_str}"))')
                 code_lines.append(')')
                 code_lines.append('element.click()')
-                code_lines.append('print("✓ Клик выполнен")')
+                code_lines.append('print("[OK] Клик выполнен")')
                 code_lines.append('time.sleep(random.uniform(2, 4))')
                 code_lines.append('')
 
@@ -335,7 +335,7 @@ class SeleniumIDEParser:
                 code_lines.append(')')
                 code_lines.append('element.clear()')
                 code_lines.append(f'element.send_keys("{{{{{var_name}}}}}")')
-                code_lines.append(f'print(f"✓ Введено: {{{{{var_name}}}}}")')
+                code_lines.append(f'print(f"[OK] Введено: {{{{{var_name}}}}}")')
                 code_lines.append('time.sleep(random.uniform(1.5, 3))')
                 code_lines.append('')
                 var_index += 1
@@ -349,7 +349,7 @@ class SeleniumIDEParser:
                 code_lines.append(f'    EC.presence_of_element_located(({selector["by"]}, "{selector_str}"))')
                 code_lines.append(')')
                 code_lines.append('element.submit()')
-                code_lines.append('print("✓ Форма отправлена")')
+                code_lines.append('print("[OK] Форма отправлена")')
                 code_lines.append('time.sleep(random.uniform(3, 5))')
                 code_lines.append('')
 
