@@ -71,7 +71,8 @@ class ScriptGenerator:
 
         config_code = "# Конфигурация\n"
         config_code += f"API_TOKEN = '{self.config.get('api_token', 'YOUR_API_TOKEN')}'\n"
-        config_code += f"API_BASE_URL = '{self.config.get('api_base_url', 'https://app.octobrowser.net/api/v2/automation')}'\n\n"
+        config_code += f"API_BASE_URL = '{self.config.get('api_base_url', 'https://app.octobrowser.net/api/v2/automation')}'\n"
+        config_code += f"LOCAL_API_BASE_URL = 'http://localhost:58888/api/v1'  # Локальный API для запуска профилей\n\n"
 
         return config_code
 
@@ -192,45 +193,50 @@ def check_profile_exists(profile_uuid):
         """Генерация кода запуска профиля"""
         code = '''
 def start_profile(profile_uuid):
-    """Запуск профиля и получение debug port"""
+    """Запуск профиля через ЛОКАЛЬНЫЙ API Octobrowser"""
     import requests
     import time
-
-    headers = {
-        'X-Octo-Api-Token': API_TOKEN,
-        'Content-Type': 'application/json'
-    }
 
     # Небольшая задержка после создания профиля
     print(f"Ожидание инициализации профиля {profile_uuid}...")
     time.sleep(2)
 
-    url = f"{API_BASE_URL}/profiles/{profile_uuid}/start"
-    print(f"DEBUG START: Запрос к URL = {url}")
+    # Используем ЛОКАЛЬНЫЙ API для запуска браузера
+    url = f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start"
+    print(f"DEBUG START: Запрос к ЛОКАЛЬНОМУ API = {url}")
 
-    response = requests.post(url, headers=headers, json={})
+    try:
+        response = requests.post(url, json={}, timeout=10)
 
-    print(f"DEBUG START: HTTP Status Code = {response.status_code}")
-    print(f"DEBUG START: Response Text = {response.text}")
+        print(f"DEBUG START: HTTP Status Code = {response.status_code}")
+        print(f"DEBUG START: Response Text = {response.text}")
 
-    if response.status_code in [200, 201]:
-        result = response.json()
+        if response.status_code in [200, 201]:
+            result = response.json()
 
-        # === ОТЛАДКА ===
-        print(f"DEBUG START: type(result) = {type(result)}")
-        print(f"DEBUG START: result.keys() = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")
-        print(f"DEBUG START: Full result = {result}")
+            # === ОТЛАДКА ===
+            print(f"DEBUG START: type(result) = {type(result)}")
+            print(f"DEBUG START: result.keys() = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")
+            print(f"DEBUG START: Full result = {result}")
 
-        # API возвращает структуру: {"success": true, "data": {"debug_port": ...}}
-        if isinstance(result, dict) and 'data' in result and result['data'] and 'debug_port' in result['data']:
-            debug_port = result['data']['debug_port']
-            print(f"Профиль запущен на порту: {debug_port}")
-            return debug_port
+            # API возвращает структуру: {"success": true, "data": {"debug_port": ...}}
+            if isinstance(result, dict) and 'data' in result and result['data'] and 'debug_port' in result['data']:
+                debug_port = result['data']['debug_port']
+                print(f"Профиль запущен на порту: {debug_port}")
+                return debug_port
+            else:
+                print(f"Ошибка запуска профиля: {response.text}")
+                return None
         else:
             print(f"Ошибка запуска профиля: {response.text}")
             return None
-    else:
-        print(f"Ошибка запуска профиля: {response.text}")
+    except requests.exceptions.ConnectionError:
+        print(f"[ОШИБКА] Не удалось подключиться к локальному API Octobrowser")
+        print(f"[РЕШЕНИЕ] Убедитесь, что приложение Octobrowser ЗАПУЩЕНО на компьютере")
+        print(f"[ПОДСКАЗКА] Локальный API должен быть доступен на http://localhost:58888")
+        return None
+    except Exception as e:
+        print(f"[ОШИБКА] Неожиданная ошибка: {e}")
         return None
 
 '''
@@ -258,25 +264,26 @@ def connect_selenium(debug_port):
         """Генерация кода остановки профиля"""
         code = '''
 def stop_profile(profile_uuid):
-    """Остановка профиля"""
+    """Остановка профиля через ЛОКАЛЬНЫЙ API"""
     import requests
 
-    headers = {
-        'X-Octo-Api-Token': API_TOKEN,
-        'Content-Type': 'application/json'
-    }
+    # Используем ЛОКАЛЬНЫЙ API для остановки браузера
+    url = f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/stop"
 
-    response = requests.post(
-        f"{API_BASE_URL}/profiles/{profile_uuid}/stop",
-        headers=headers,
-        json={}
-    )
+    try:
+        response = requests.post(url, json={}, timeout=10)
 
-    if response.status_code in [200, 201]:
-        print("Профиль остановлен")
-        return True
-    else:
-        print(f"Ошибка остановки профиля: {response.text}")
+        if response.status_code in [200, 201]:
+            print("Профиль остановлен")
+            return True
+        else:
+            print(f"Ошибка остановки профиля: {response.text}")
+            return False
+    except requests.exceptions.ConnectionError:
+        print(f"[ОШИБКА] Octobrowser не запущен или недоступен")
+        return False
+    except Exception as e:
+        print(f"[ОШИБКА] {e}")
         return False
 
 '''
