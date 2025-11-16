@@ -16,6 +16,7 @@ from src.api.octobrowser_api import OctobrowserAPI
 from src.generator.script_generator import ScriptGenerator
 from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
+from src.utils.selenium_ide_parser import SeleniumIDEParser
 
 
 class OctobrowserScriptBuilder:
@@ -35,6 +36,7 @@ class OctobrowserScriptBuilder:
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_output)
         self.parser = ScriptParser()
+        self.side_parser = SeleniumIDEParser()
 
         # Данные для импортированного скрипта
         self.imported_data = None  # Извлеченные данные из внешнего скрипта
@@ -488,8 +490,10 @@ except Exception as e:
         buttons_frame = ttk.Frame(parent)
         buttons_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        ttk.Button(buttons_frame, text="📥 Импорт скрипта",
-                  command=self.import_external_script, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="📥 Импорт Selenium IDE",
+                  command=self.import_selenium_ide_file, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="📋 Импорт скрипта",
+                  command=self.import_external_script).pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="🔨 Сгенерировать скрипт",
                   command=self.generate_script, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="💾 Сохранить скрипт",
@@ -903,6 +907,56 @@ except Exception as e:
         self.output_text.insert(tk.END, text)
         self.output_text.see(tk.END)
         self.output_text.update_idletasks()
+
+    def import_selenium_ide_file(self):
+        """Импортирует .side файл Selenium IDE"""
+        file_path = filedialog.askopenfilename(
+            title="Выберите файл Selenium IDE",
+            filetypes=[
+                ("Selenium IDE files", "*.side"),
+                ("JSON files", "*.json"),
+                ("All files", "*.*")
+            ]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            # Прочитать файл
+            with open(file_path, 'r', encoding='utf-8') as f:
+                side_content = f.read()
+
+            # Парсить .side файл
+            self.imported_data = self.side_parser.parse_side_file(side_content)
+
+            # Показать информацию
+            info_msg = f"✅ Selenium IDE тест успешно импортирован!\n\n"
+            info_msg += f"URL: {self.imported_data['url']}\n"
+            info_msg += f"Действий: {len(self.imported_data['actions'])}\n"
+            info_msg += f"Извлечено значений: {len(self.imported_data['values'])}\n\n"
+
+            if self.imported_data['values']:
+                info_msg += f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n\n"
+                info_msg += "Переходим к редактированию данных..."
+                messagebox.showinfo("Успешный импорт", info_msg)
+
+                # Инициализировать данные для CSV
+                self.csv_data_rows = [self.imported_data['values']]
+
+                # Показать редактор данных
+                self.show_imported_data_editor()
+            else:
+                info_msg += "Значения для параметризации не найдены.\n"
+                info_msg += "Код вставлен в редактор."
+                messagebox.showinfo("Успешный импорт", info_msg)
+
+                # Вставить код в редактор
+                self.code_editor.delete("1.0", tk.END)
+                self.code_editor.insert("1.0", self.imported_data['converted_code'])
+
+        except Exception as e:
+            messagebox.showerror("Ошибка импорта", f"Не удалось импортировать .side файл:\n\n{str(e)}")
 
     def import_external_script(self):
         """Открывает диалог для импорта внешнего скрипта"""
