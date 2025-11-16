@@ -804,6 +804,16 @@ except Exception as e:
             with open(script_path, 'w', encoding='utf-8') as f:
                 f.write(script_content)
 
+            # Копирование CSV файла в директорию скрипта (если используется параметризация)
+            if self.use_parametrization_var.get():
+                csv_path = self.csv_path_entry.get().strip()
+                if csv_path and Path(csv_path).exists():
+                    import shutil
+                    csv_filename = Path(csv_path).name
+                    csv_dest = output_dir / csv_filename
+                    shutil.copy2(csv_path, csv_dest)
+                    self.append_output(f"✓ CSV файл скопирован: {csv_dest}\n")
+
             self.last_generated_script = str(script_path)
             self.append_output(f"✓ Скрипт сгенерирован: {script_path}\n")
             messagebox.showinfo("Успех", f"Скрипт сгенерирован:\n{script_path}")
