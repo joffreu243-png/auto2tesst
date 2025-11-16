@@ -719,7 +719,7 @@ def run_automation_iteration(iteration_number, data_row):
         return True
 
     except Exception as e:
-        print(f"Ошибка в итерации #{iteration_number}: {{e}}")
+        print(f"Ошибка в итерации #{iteration_number}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -826,6 +826,13 @@ if __name__ == "__main__":
         # Базовые импорты
         self.add_import("import time")
         self.add_import("import sys")
+
+        # Selenium импорты (если используется Selenium)
+        if options.get('use_selenium', False):
+            self.add_import("from selenium.webdriver.common.by import By")
+            self.add_import("from selenium.webdriver.support.ui import WebDriverWait")
+            self.add_import("from selenium.webdriver.support import expected_conditions as EC")
+            self.add_import("from selenium.common.exceptions import TimeoutException, NoSuchElementException")
 
         script = self._generate_header()
         script += self._generate_imports()
