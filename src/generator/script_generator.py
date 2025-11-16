@@ -109,17 +109,37 @@ def create_profile():
         if profile_config.get('tags'):
             code += f"        'tags': {profile_config['tags']},\n"
 
+        # Proxy - важно для работы с антидетект-браузером
         if profile_config.get('proxy'):
             proxy = profile_config['proxy']
+            # Убедимся что port - число
+            port = proxy.get('port', 0)
+            if isinstance(port, str):
+                try:
+                    port = int(port)
+                except ValueError:
+                    port = 0
+
             code += f'''        'proxy': {{
             'type': '{proxy.get('type', 'http')}',
             'host': '{proxy.get('host', '')}',
-            'port': {proxy.get('port', 0)},
+            'port': {port},
             'login': '{proxy.get('login', '')}',
             'password': '{proxy.get('password', '')}'
         }},\n'''
 
         code += '''    }
+
+    # Отладочный вывод отправляемых данных
+    print(f"DEBUG: Создание профиля с данными:")
+    print(f"  - Title: {profile_data.get('title', 'N/A')}")
+    if 'proxy' in profile_data:
+        print(f"  - Proxy type: {profile_data['proxy'].get('type', 'N/A')}")
+        print(f"  - Proxy host: {profile_data['proxy'].get('host', 'N/A')}")
+        print(f"  - Proxy port: {profile_data['proxy'].get('port', 'N/A')}")
+        print(f"  - Proxy login: {profile_data['proxy'].get('login', 'N/A')}")
+    else:
+        print(f"  - Proxy: НЕ УКАЗАН")
 
     response = requests.post(
         f"{API_BASE_URL}/profiles",
@@ -177,7 +197,20 @@ def check_profile_exists(profile_uuid):
     if response.status_code == 200:
         result = response.json()
         if 'data' in result and result['data']:
-            print(f"[OK] Профиль найден: {result['data'].get('title', 'Без названия')}")
+            profile_data = result['data']
+            print(f"[OK] Профиль найден: {profile_data.get('title', 'Без названия')}")
+
+            # Проверка прокси
+            if 'proxy' in profile_data and profile_data['proxy']:
+                proxy = profile_data['proxy']
+                print(f"[PROXY] Прокси установлен:")
+                print(f"  - Тип: {proxy.get('type', 'N/A')}")
+                print(f"  - Хост: {proxy.get('host', 'N/A')}")
+                print(f"  - Порт: {proxy.get('port', 'N/A')}")
+                print(f"  - Логин: {proxy.get('login', 'N/A')}")
+            else:
+                print(f"[PROXY] Прокси НЕ установлен (используется прямое подключение)")
+
             return True
         else:
             print(f"[ОШИБКА] Профиль не найден в ответе: {response.text}")

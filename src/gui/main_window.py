@@ -736,13 +736,28 @@ except Exception as e:
 
             # Proxy
             if self.use_proxy_var.get():
-                profile_config['proxy'] = {
-                    'type': self.proxy_type_var.get(),
-                    'host': self.proxy_host_entry.get(),
-                    'port': self.proxy_port_entry.get(),
-                    'login': self.proxy_login_entry.get(),
-                    'password': self.proxy_password_entry.get()
-                }
+                proxy_host = self.proxy_host_entry.get().strip()
+                proxy_port = self.proxy_port_entry.get().strip()
+
+                # Проверка что хост и порт заполнены
+                if proxy_host and proxy_port:
+                    try:
+                        profile_config['proxy'] = {
+                            'type': self.proxy_type_var.get(),
+                            'host': proxy_host,
+                            'port': int(proxy_port),  # Конвертируем в int!
+                            'login': self.proxy_login_entry.get().strip(),
+                            'password': self.proxy_password_entry.get().strip()
+                        }
+                    except ValueError:
+                        # Если порт не число - используем 0
+                        profile_config['proxy'] = {
+                            'type': self.proxy_type_var.get(),
+                            'host': proxy_host,
+                            'port': 0,
+                            'login': self.proxy_login_entry.get().strip(),
+                            'password': self.proxy_password_entry.get().strip()
+                        }
 
             # Tags
             if self.use_tags_var.get():
