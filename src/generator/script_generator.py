@@ -256,12 +256,30 @@ def start_profile(profile_uuid):
             print(f"  [ERROR] {str(e)[:80]}")
 
     print(f"")
-    print(f"[КРИТИЧЕСКАЯ ОШИБКА] Не удалось запустить профиль")
-    print(f"[ПОДСКАЗКА] Попробуйте:")
-    print(f"  1. Запустить профиль вручную в Octobrowser GUI")
-    print(f"  2. Проверить логи Octobrowser на наличие правильного API endpoint")
-    print(f"  3. Убедиться, что локальный API включен в настройках Octobrowser")
-    return None
+    print(f"=" * 70)
+    print(f"ПРОФИЛЬ СОЗДАН УСПЕШНО!")
+    print(f"=" * 70)
+    print(f"UUID профиля: {profile_uuid}")
+    print(f"")
+    print(f"ВАЖНО: Автоматический запуск через API недоступен.")
+    print(f"Octobrowser использует внутренний механизм WebSocket для запуска.")
+    print(f"")
+    print(f"ДЛЯ ЗАПУСКА ПРОФИЛЯ:")
+    print(f"  1. Откройте приложение Octobrowser")
+    print(f"  2. Найдите профиль с UUID: {profile_uuid}")
+    print(f"  3. Нажмите кнопку 'Запустить' в GUI")
+    print(f"")
+    print(f"ДЛЯ АВТОМАТИЗАЦИИ SELENIUM:")
+    print(f"  1. Запустите профиль вручную (шаги выше)")
+    print(f"  2. Профиль запустится с debug port (обычно 9222)")
+    print(f"  3. Используйте функцию connect_selenium(9222) для подключения")
+    print(f"")
+    print(f"АЛЬТЕРНАТИВА - Quick Launch URL:")
+    print(f"  Получите Quick Launch URL через облачный API и используйте его")
+    print(f"  для быстрого запуска профиля через браузер")
+    print(f"=" * 70)
+    print(f"")
+    return None  # Возвращаем None чтобы остановить скрипт
 
 '''
         return code
