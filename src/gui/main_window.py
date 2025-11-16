@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.api.octobrowser_api import OctobrowserAPI
 from src.generator.script_generator import ScriptGenerator
 from src.runner.script_runner import ScriptRunner
+from src.utils.script_parser import ScriptParser
 
 
 class OctobrowserScriptBuilder:
@@ -33,6 +34,11 @@ class OctobrowserScriptBuilder:
         self.generator = ScriptGenerator()
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_output)
+        self.parser = ScriptParser()
+
+        # Данные для импортированного скрипта
+        self.imported_data = None  # Извлеченные данные из внешнего скрипта
+        self.csv_data_rows = []    # Строки для CSV таблицы
 
         # Создание интерфейса
         self.create_widgets()
@@ -482,6 +488,8 @@ except Exception as e:
         buttons_frame = ttk.Frame(parent)
         buttons_frame.pack(fill=tk.X, padx=5, pady=5)
 
+        ttk.Button(buttons_frame, text="📥 Импорт скрипта",
+                  command=self.import_external_script, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="🔨 Сгенерировать скрипт",
                   command=self.generate_script, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="💾 Сохранить скрипт",
@@ -895,6 +903,275 @@ except Exception as e:
         self.output_text.insert(tk.END, text)
         self.output_text.see(tk.END)
         self.output_text.update_idletasks()
+
+    def import_external_script(self):
+        """Открывает диалог для импорта внешнего скрипта"""
+        # Создать диалоговое окно
+        import_window = tk.Toplevel(self.root)
+        import_window.title("📥 Импорт внешнего скрипта")
+        import_window.geometry("900x700")
+
+        # Инструкция
+        instruction_frame = ttk.LabelFrame(import_window, text="📖 Инструкция", padding=10)
+        instruction_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        instruction_text = """
+Вставьте код скрипта из Chrome Web Store расширений (Selenium IDE, Katalon Recorder и т.д.)
+
+Поддерживаемые форматы:
+• driver.find_element(By.XPATH, "...").click()
+• driver.find_element(By.XPATH, get_xpath(driver, 'ID')).click()
+• driver.find_element(By.ID, "...").send_keys("text")
+
+После импорта:
+1. Программа извлечет все введенные значения (имена, email, пароли и т.д.)
+2. Создаст таблицу для редактирования данных
+3. Сгенерирует CSV файл для параметризации
+4. Конвертирует код в формат auto2tesst
+        """
+        ttk.Label(instruction_frame, text=instruction_text, justify=tk.LEFT).pack()
+
+        # Поле для вставки скрипта
+        script_frame = ttk.LabelFrame(import_window, text="📝 Вставьте код скрипта", padding=10)
+        script_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        script_text = scrolledtext.ScrolledText(script_frame, height=20, wrap=tk.WORD,
+                                                font=("Consolas", 10))
+        script_text.pack(fill=tk.BOTH, expand=True)
+
+        # Пример для демонстрации
+        example_script = """from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+
+# to click on the element(First name) found
+driver.find_element(By.XPATH,get_xpath(driver,'YIFjT9kq3o5PEb_')).click()
+
+# to type content in input field
+driver.find_element(By.XPATH,get_xpath(driver,'fYsTI13_rml3tMs')).send_keys('Adam')
+
+# to type content in input field
+driver.find_element(By.XPATH,get_xpath(driver,'wIKmzLjQdTQwQ05')).send_keys('Fisher')
+
+# to type content in input field
+driver.find_element(By.XPATH,get_xpath(driver,'tJZm6UxdZNuMAQD')).send_keys('jfeuheghuihegj9egh@gmail.com')
+
+# to type content in input field
+driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('10101900')
+"""
+
+        # Кнопки
+        buttons_frame = ttk.Frame(import_window)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        def load_example():
+            script_text.delete("1.0", tk.END)
+            script_text.insert("1.0", example_script)
+
+        def process_import():
+            code = script_text.get("1.0", tk.END).strip()
+            if not code:
+                messagebox.showwarning("Предупреждение", "Вставьте код скрипта для импорта")
+                return
+
+            try:
+                # Парсим скрипт
+                self.imported_data = self.parser.parse_external_script(code)
+
+                if not self.imported_data['values']:
+                    messagebox.showinfo("Информация",
+                                      "Скрипт импортирован, но не найдены значения для параметризации.\n"
+                                      "Код вставлен в редактор.")
+                    # Вставить конвертированный код в редактор
+                    self.code_editor.delete("1.0", tk.END)
+                    self.code_editor.insert("1.0", self.imported_data['converted_code'])
+                    import_window.destroy()
+                    return
+
+                # Инициализировать данные для CSV таблицы
+                self.csv_data_rows = [self.imported_data['values']]
+
+                # Закрыть окно импорта и открыть окно редактирования данных
+                import_window.destroy()
+
+                # Показать результаты
+                self.show_imported_data_editor()
+
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Ошибка импорта скрипта:\n{str(e)}")
+
+        ttk.Button(buttons_frame, text="📋 Вставить пример", command=load_example).pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="✅ Импортировать", command=process_import,
+                  style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="❌ Отмена",
+                  command=import_window.destroy).pack(side=tk.LEFT, padx=2)
+
+    def show_imported_data_editor(self):
+        """Показывает редактор извлеченных данных"""
+        if not self.imported_data:
+            return
+
+        # Создать окно редактора
+        editor_window = tk.Toplevel(self.root)
+        editor_window.title("📊 Редактирование данных для параметризации")
+        editor_window.geometry("1000x600")
+
+        # Информация
+        info_frame = ttk.LabelFrame(editor_window, text="ℹ️ Информация", padding=10)
+        info_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        info_text = f"""
+Извлечено значений: {len(self.imported_data['values'])}
+Найденные переменные: {', '.join(self.imported_data['csv_headers'])}
+
+Вы можете:
+• Редактировать значения в таблице
+• Добавить новые строки для мультизапуска
+• Сохранить CSV файл
+• Вставить конвертированный код в редактор
+        """
+        ttk.Label(info_frame, text=info_text, justify=tk.LEFT).pack()
+
+        # Таблица данных
+        table_frame = ttk.LabelFrame(editor_window, text="📋 Данные для CSV", padding=10)
+        table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        # Создать Treeview для таблицы
+        columns = self.imported_data['csv_headers']
+        tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=15)
+
+        # Настроить заголовки
+        for col in columns:
+            tree.heading(col, text=col.upper())
+            tree.column(col, width=150)
+
+        # Заполнить данные
+        for row in self.csv_data_rows:
+            tree.insert('', tk.END, values=row)
+
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscroll=scrollbar.set)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Кнопки управления
+        buttons_frame = ttk.Frame(editor_window)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        def add_row():
+            """Добавить новую строку"""
+            # Генерировать пример значений
+            new_row = []
+            for i, header in enumerate(self.imported_data['csv_headers']):
+                original_value = self.imported_data['values'][i] if i < len(self.imported_data['values']) else ''
+                example_value = self.parser._generate_example_value(header, original_value, len(self.csv_data_rows))
+                new_row.append(example_value)
+
+            self.csv_data_rows.append(new_row)
+            tree.insert('', tk.END, values=new_row)
+
+        def edit_row():
+            """Редактировать выбранную строку"""
+            selected = tree.selection()
+            if not selected:
+                messagebox.showwarning("Предупреждение", "Выберите строку для редактирования")
+                return
+
+            item = tree.item(selected[0])
+            values = item['values']
+
+            # Создать диалог редактирования
+            edit_dialog = tk.Toplevel(editor_window)
+            edit_dialog.title("✏️ Редактирование строки")
+            edit_dialog.geometry("500x400")
+
+            entries = []
+            for i, (header, value) in enumerate(zip(columns, values)):
+                frame = ttk.Frame(edit_dialog)
+                frame.pack(fill=tk.X, padx=10, pady=5)
+
+                ttk.Label(frame, text=f"{header}:", width=15).pack(side=tk.LEFT)
+                entry = ttk.Entry(frame, width=40)
+                entry.insert(0, value)
+                entry.pack(side=tk.LEFT, padx=5)
+                entries.append(entry)
+
+            def save_edit():
+                new_values = [entry.get() for entry in entries]
+                tree.item(selected[0], values=new_values)
+
+                # Обновить в csv_data_rows
+                index = tree.index(selected[0])
+                self.csv_data_rows[index] = new_values
+
+                edit_dialog.destroy()
+
+            ttk.Button(edit_dialog, text="💾 Сохранить", command=save_edit).pack(pady=10)
+
+        def delete_row():
+            """Удалить выбранную строку"""
+            selected = tree.selection()
+            if not selected:
+                messagebox.showwarning("Предупреждение", "Выберите строку для удаления")
+                return
+
+            if len(self.csv_data_rows) <= 1:
+                messagebox.showwarning("Предупреждение", "Должна остаться хотя бы одна строка")
+                return
+
+            index = tree.index(selected[0])
+            tree.delete(selected[0])
+            del self.csv_data_rows[index]
+
+        def save_csv():
+            """Сохранить CSV файл"""
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+            )
+
+            if file_path:
+                try:
+                    import csv
+                    with open(file_path, 'w', newline='', encoding='utf-8') as f:
+                        writer = csv.writer(f)
+                        writer.writerow(self.imported_data['csv_headers'])
+                        writer.writerows(self.csv_data_rows)
+
+                    messagebox.showinfo("Успех", f"CSV файл сохранен:\n{file_path}")
+
+                    # Автоматически установить путь в параметризацию
+                    self.use_parametrization_var.set(True)
+                    self.toggle_parametrization_options()
+                    self.csv_path_entry.delete(0, tk.END)
+                    self.csv_path_entry.insert(0, file_path)
+
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Ошибка сохранения CSV:\n{str(e)}")
+
+        def apply_to_editor():
+            """Применить конвертированный код к редактору"""
+            # Вставить код в редактор
+            self.code_editor.delete("1.0", tk.END)
+            self.code_editor.insert("1.0", self.imported_data['converted_code'])
+
+            messagebox.showinfo("Успех",
+                              f"Код вставлен в редактор!\n\n"
+                              f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n"
+                              f"Строк данных: {len(self.csv_data_rows)}\n\n"
+                              f"Сохраните CSV файл и включите параметризацию для мультизапуска.")
+
+            editor_window.destroy()
+
+        ttk.Button(buttons_frame, text="➕ Добавить строку", command=add_row).pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="✏️ Редактировать", command=edit_row).pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="🗑️ Удалить", command=delete_row).pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="💾 Сохранить CSV", command=save_csv).pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="✅ Применить к редактору", command=apply_to_editor,
+                  style="Accent.TButton").pack(side=tk.LEFT, padx=2)
 
 
 def main():
