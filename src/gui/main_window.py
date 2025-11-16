@@ -442,20 +442,16 @@ class OctobrowserScriptBuilder:
         self.code_editor.pack(fill=tk.BOTH, expand=True, pady=5)
 
         # Пример кода с реальными действиями
-        example_code = '''# Импорты для работы с элементами
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import time
-
-# Пример 1: Переход на сайт и взаимодействие
+        # ВАЖНО: Импорты добавляются автоматически при генерации скрипта!
+        # Не нужно писать импорты вручную - просто пишите код действий.
+        example_code = '''# Пример 1: Переход на сайт и взаимодействие
 driver.get("https://www.google.com")
 print("Открыта страница Google")
 time.sleep(2)
 
-# Пример 2: Поиск и клик по элементу
+# Пример 2: Поиск и клик по элементу с ожиданием загрузки
 try:
-    # Ожидание загрузки поля поиска
+    # Ожидание загрузки поля поиска (WebDriverWait добавляется автоматически)
     search_box = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.NAME, "q"))
     )
@@ -470,8 +466,13 @@ try:
 except Exception as e:
     print(f"Ошибка при поиске: {e}")
 
+# 💡 СОВЕТ: Используйте Chrome Extension "Selenium Chrome Recorder"
+# для автоматической записи действий и генерации надежного кода!
+# Он создаст правильные селекторы и добавит все необходимое.
+
 # С параметризацией: {{variable}}
 # Пример: driver.get("{{url}}")
+# Пример: search_box.send_keys("{{search_query}}")
 '''
         self.code_editor.insert("1.0", example_code)
 
