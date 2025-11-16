@@ -552,10 +552,41 @@ if __name__ == "__main__":
 
     def _generate_data_loader(self, data_file_path: str) -> str:
         """Генерация кода загрузки данных из CSV"""
+        # Получаем только имя файла (без пути)
+        import os
+        csv_filename = os.path.basename(data_file_path)
+
         code = f'''
-def load_data_from_csv(csv_path):
+def find_csv_file(csv_filename):
+    """Поиск CSV файла в нескольких возможных местах"""
+    import os
+
+    # Список мест для поиска файла
+    search_paths = [
+        csv_filename,  # Текущая директория
+        os.path.join(os.path.dirname(__file__), csv_filename),  # Директория скрипта
+        os.path.join(os.path.dirname(__file__), '..', csv_filename),  # Родительская директория
+        r"{data_file_path}",  # Исходный абсолютный путь
+    ]
+
+    for path in search_paths:
+        if os.path.exists(path):
+            print(f"[OK] CSV файл найден: {{os.path.abspath(path)}}")
+            return path
+
+    # Если файл не найден, показываем подробную ошибку
+    print(f"[ОШИБКА] CSV файл '{{csv_filename}}' не найден!")
+    print(f"Искали в следующих местах:")
+    for path in search_paths:
+        print(f"  - {{os.path.abspath(path)}}")
+    raise FileNotFoundError(f"CSV файл '{{csv_filename}}' не найден. Проверьте путь и поместите файл в одну из указанных директорий.")
+
+def load_data_from_csv(csv_filename):
     """Загрузка данных из CSV файла"""
     import csv
+
+    # Находим CSV файл
+    csv_path = find_csv_file(csv_filename)
 
     data_rows = []
     with open(csv_path, 'r', encoding='utf-8-sig') as f:
@@ -565,8 +596,8 @@ def load_data_from_csv(csv_path):
     print(f"Загружено {{len(data_rows)}} строк данных из CSV")
     return data_rows
 
-# Путь к файлу с данными
-DATA_FILE = r"{data_file_path}"
+# Имя файла с данными
+CSV_FILENAME = r"{csv_filename}"
 '''
         return code
 
@@ -722,7 +753,7 @@ def main():
     """Главная функция с мультизапуском"""
     try:
         # Загрузка данных
-        data_rows = load_data_from_csv(DATA_FILE)
+        data_rows = load_data_from_csv(CSV_FILENAME)
 
         if not data_rows:
             print("Нет данных для обработки!")
@@ -757,9 +788,13 @@ def main():
         print(f"С ошибками: {failed_iterations}")
         print(f"{'='*60}")
 
-    except FileNotFoundError:
-        print(f"Ошибка: файл с данными не найден: {DATA_FILE}")
-        print("Создайте CSV файл с данными!")
+    except FileNotFoundError as e:
+        print(f"[ОШИБКА] CSV файл не найден!")
+        print(f"Детали: {e}")
+        print("\\nПоместите CSV файл в одну из следующих директорий:")
+        print(f"  - В директорию со скриптом")
+        print(f"  - В родительскую директорию")
+        print(f"  - Укажите полный путь в настройках приложения")
     except Exception as e:
         print(f"Критическая ошибка: {e}")
         import traceback
