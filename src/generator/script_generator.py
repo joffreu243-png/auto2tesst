@@ -193,7 +193,7 @@ def check_profile_exists(profile_uuid):
         """Генерация кода запуска профиля"""
         code = '''
 def start_profile(profile_uuid):
-    """Запуск профиля через ЛОКАЛЬНЫЙ API Octobrowser"""
+    """Запуск профиля через локальный API Octobrowser"""
     import requests
     import time
 
@@ -201,85 +201,63 @@ def start_profile(profile_uuid):
     print(f"Ожидание инициализации профиля {profile_uuid}...")
     time.sleep(2)
 
-    # Пробуем разные варианты endpoint и методы HTTP
-    attempts = [
-        ("POST", f"{LOCAL_API_BASE_URL}/automation/profiles/{profile_uuid}/start", True),
-        ("GET", f"{LOCAL_API_BASE_URL}/automation/profiles/{profile_uuid}/start", False),
-        ("POST", f"http://localhost:58888/start?uuid={profile_uuid}", False),
-        ("GET", f"http://localhost:58888/start?uuid={profile_uuid}", False),
-        ("POST", f"http://localhost:58888/profile/start/{profile_uuid}", True),
-        ("POST", f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start", False),
-        ("GET", f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start", False),
-    ]
+    # Правильный endpoint для локального API (из официальной документации)
+    url = "http://localhost:58888/api/profiles/start"
 
-    for i, (method, url, use_json) in enumerate(attempts, 1):
-        print(f"[{i}/{len(attempts)}] {method} {url}")
+    # Параметры запуска
+    payload = {
+        "uuid": profile_uuid,
+        "headless": False,  # Показывать интерфейс браузера
+        "debug_port": True  # Включить debug port для Selenium
+    }
 
-        try:
-            if method == "POST":
-                if use_json:
-                    response = requests.post(url, json={}, timeout=5)
-                else:
-                    response = requests.post(url, timeout=5)
-            else:  # GET
-                response = requests.get(url, timeout=5)
+    print(f"Запуск профиля через локальный API...")
+    print(f"URL: {url}")
+    print(f"Payload: {payload}")
 
-            print(f"  Status: {response.status_code}")
+    try:
+        response = requests.post(url, json=payload, timeout=10)
 
-            if response.status_code in [200, 201]:
-                result = response.json()
-                print(f"  Response: {result}")
+        print(f"Status: {response.status_code}")
 
-                # Пробуем разные форматы ответа
-                debug_port = None
-                if isinstance(result, dict):
-                    if 'data' in result and isinstance(result['data'], dict):
-                        debug_port = result['data'].get('debug_port') or result['data'].get('port') or result['data'].get('ws_endpoint')
-                    elif 'debug_port' in result:
-                        debug_port = result['debug_port']
-                    elif 'port' in result:
-                        debug_port = result['port']
+        if response.status_code in [200, 201]:
+            result = response.json()
+            print(f"Response: {result}")
 
-                if debug_port:
-                    print(f"[OK] Профиль запущен на порту: {debug_port}")
-                    return debug_port
-                else:
-                    print(f"  [ПРЕДУПРЕЖДЕНИЕ] Успешный ответ, но debug_port не найден")
-            elif response.status_code == 404:
-                print(f"  [404] Endpoint не найден")
+            # Ищем debug_port в ответе
+            debug_port = None
+            if isinstance(result, dict):
+                # Пробуем разные варианты структуры ответа
+                if 'data' in result and isinstance(result['data'], dict):
+                    debug_port = result['data'].get('debug_port') or result['data'].get('port') or result['data'].get('ws_endpoint')
+                elif 'debug_port' in result:
+                    debug_port = result['debug_port']
+                elif 'port' in result:
+                    debug_port = result['port']
+                elif 'ws_endpoint' in result:
+                    # Если возвращается WebSocket endpoint, извлекаем порт
+                    ws = result['ws_endpoint']
+                    if ':' in str(ws):
+                        debug_port = str(ws).split(':')[-1].split('/')[0]
+
+            if debug_port:
+                print(f"[OK] Профиль запущен на порту: {debug_port}")
+                return debug_port
             else:
-                print(f"  [ОШИБКА] {response.text[:100]}")
+                print(f"[ПРЕДУПРЕЖДЕНИЕ] Профиль запущен, но debug_port не найден в ответе")
+                print(f"Попробуйте использовать стандартный порт 9222")
+                return 9222
 
-        except requests.exceptions.ConnectionError:
-            print(f"  [CONNECTION ERROR] Не удалось подключиться")
-        except Exception as e:
-            print(f"  [ERROR] {str(e)[:80]}")
+        else:
+            print(f"[ОШИБКА] HTTP {response.status_code}: {response.text}")
 
-    print(f"")
-    print(f"=" * 70)
-    print(f"ПРОФИЛЬ СОЗДАН УСПЕШНО!")
-    print(f"=" * 70)
-    print(f"UUID профиля: {profile_uuid}")
-    print(f"")
-    print(f"ВАЖНО: Автоматический запуск через API недоступен.")
-    print(f"Octobrowser использует внутренний механизм WebSocket для запуска.")
-    print(f"")
-    print(f"ДЛЯ ЗАПУСКА ПРОФИЛЯ:")
-    print(f"  1. Откройте приложение Octobrowser")
-    print(f"  2. Найдите профиль с UUID: {profile_uuid}")
-    print(f"  3. Нажмите кнопку 'Запустить' в GUI")
-    print(f"")
-    print(f"ДЛЯ АВТОМАТИЗАЦИИ SELENIUM:")
-    print(f"  1. Запустите профиль вручную (шаги выше)")
-    print(f"  2. Профиль запустится с debug port (обычно 9222)")
-    print(f"  3. Используйте функцию connect_selenium(9222) для подключения")
-    print(f"")
-    print(f"АЛЬТЕРНАТИВА - Quick Launch URL:")
-    print(f"  Получите Quick Launch URL через облачный API и используйте его")
-    print(f"  для быстрого запуска профиля через браузер")
-    print(f"=" * 70)
-    print(f"")
-    return None  # Возвращаем None чтобы остановить скрипт
+    except requests.exceptions.ConnectionError:
+        print(f"[ОШИБКА] Не удалось подключиться к локальному API Octobrowser")
+        print(f"[РЕШЕНИЕ] Убедитесь, что приложение Octobrowser ЗАПУЩЕНО")
+    except Exception as e:
+        print(f"[ОШИБКА] {e}")
+
+    return None
 
 '''
         return code
@@ -306,20 +284,26 @@ def connect_selenium(debug_port):
         """Генерация кода остановки профиля"""
         code = '''
 def stop_profile(profile_uuid):
-    """Остановка профиля через ЛОКАЛЬНЫЙ API"""
+    """Остановка профиля через локальный API"""
     import requests
 
-    # Используем ЛОКАЛЬНЫЙ API для остановки браузера
-    url = f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/stop"
+    # Правильный endpoint для остановки (из официальной документации)
+    url = "http://localhost:58888/api/profiles/stop"
+
+    payload = {
+        "uuid": profile_uuid
+    }
+
+    print(f"Остановка профиля {profile_uuid}...")
 
     try:
-        response = requests.post(url, json={}, timeout=10)
+        response = requests.post(url, json=payload, timeout=10)
 
         if response.status_code in [200, 201]:
-            print("Профиль остановлен")
+            print("[OK] Профиль остановлен")
             return True
         else:
-            print(f"Ошибка остановки профиля: {response.text}")
+            print(f"[ОШИБКА] HTTP {response.status_code}: {response.text}")
             return False
     except requests.exceptions.ConnectionError:
         print(f"[ОШИБКА] Octobrowser не запущен или недоступен")
