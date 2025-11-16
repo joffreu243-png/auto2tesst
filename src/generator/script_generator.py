@@ -201,20 +201,29 @@ def start_profile(profile_uuid):
     print(f"Ожидание инициализации профиля {profile_uuid}...")
     time.sleep(2)
 
-    # Пробуем разные варианты endpoint для локального API
-    endpoints_to_try = [
-        f"{LOCAL_API_BASE_URL}/automation/profiles/{profile_uuid}/start",
-        f"http://localhost:58888/api/automation/profiles/{profile_uuid}/start",
-        f"http://localhost:58888/automation/profiles/{profile_uuid}/start",
-        f"http://localhost:35000/api/v1/automation/profiles/{profile_uuid}/start",
-        f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start",
+    # Пробуем разные варианты endpoint и методы HTTP
+    attempts = [
+        ("POST", f"{LOCAL_API_BASE_URL}/automation/profiles/{profile_uuid}/start", True),
+        ("GET", f"{LOCAL_API_BASE_URL}/automation/profiles/{profile_uuid}/start", False),
+        ("POST", f"http://localhost:58888/start?uuid={profile_uuid}", False),
+        ("GET", f"http://localhost:58888/start?uuid={profile_uuid}", False),
+        ("POST", f"http://localhost:58888/profile/start/{profile_uuid}", True),
+        ("POST", f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start", False),
+        ("GET", f"{LOCAL_API_BASE_URL}/profiles/{profile_uuid}/start", False),
     ]
 
-    for i, url in enumerate(endpoints_to_try, 1):
-        print(f"[{i}/{len(endpoints_to_try)}] Попытка: {url}")
+    for i, (method, url, use_json) in enumerate(attempts, 1):
+        print(f"[{i}/{len(attempts)}] {method} {url}")
 
         try:
-            response = requests.post(url, json={}, timeout=5)
+            if method == "POST":
+                if use_json:
+                    response = requests.post(url, json={}, timeout=5)
+                else:
+                    response = requests.post(url, timeout=5)
+            else:  # GET
+                response = requests.get(url, timeout=5)
+
             print(f"  Status: {response.status_code}")
 
             if response.status_code in [200, 201]:
