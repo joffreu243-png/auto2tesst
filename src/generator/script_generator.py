@@ -858,6 +858,7 @@ if __name__ == "__main__":
 
         # Базовые импорты
         self.add_import("import time")
+        self.add_import("import random")
         self.add_import("import sys")
 
         # Selenium импорты (если используется Selenium)
