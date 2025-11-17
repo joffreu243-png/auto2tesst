@@ -55,6 +55,9 @@ class OctobrowserScriptBuilder:
         # Создание интерфейса
         self.create_widgets()
 
+        # Загрузить сохраненные настройки в UI
+        self.load_saved_settings()
+
         # НЕ инициализируем API автоматически - это вызывает лаги
         # Пользователь должен нажать "Подключить API" сам
 
@@ -65,14 +68,33 @@ class OctobrowserScriptBuilder:
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
         except FileNotFoundError:
+            # Дефолтная конфигурация
             self.config = {
                 'octobrowser': {
                     'api_base_url': 'https://app.octobrowser.net/api/v2/automation',
-                    'api_token': 'YOUR_API_TOKEN_HERE'
+                    'api_token': ''
+                },
+                'sms': {
+                    'provider': 'daisysms',
+                    'api_key': '',
+                    'service': 'ds'
+                },
+                'proxy': {
+                    'enabled': False,
+                    'type': 'http',
+                    'host': '',
+                    'port': '',
+                    'login': '',
+                    'password': ''
+                },
+                'ui_settings': {
+                    'last_csv_path': '',
+                    'automation_framework': 'playwright',
+                    'playwright_target': 'library'
                 },
                 'script_settings': {
                     'output_directory': 'generated_scripts',
-                    'default_automation_framework': 'selenium'
+                    'default_automation_framework': 'playwright'
                 }
             }
 
@@ -81,6 +103,76 @@ class OctobrowserScriptBuilder:
         config_path = Path(__file__).parent.parent.parent / 'config.json'
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(self.config, f, indent=2, ensure_ascii=False)
+
+    def load_saved_settings(self):
+        """Загружает сохраненные настройки в UI поля"""
+        # SMS настройки
+        sms_config = self.config.get('sms', {})
+        if sms_config.get('api_key'):
+            self.sms_api_key_entry.insert(0, sms_config['api_key'])
+        if sms_config.get('service'):
+            self.sms_service_var.set(sms_config['service'])
+
+        # Proxy настройки
+        proxy_config = self.config.get('proxy', {})
+        if proxy_config.get('enabled'):
+            self.use_proxy_var.set(True)
+            self.toggle_proxy_options()  # Показать поля прокси
+
+        if proxy_config.get('type'):
+            self.proxy_type_var.set(proxy_config['type'])
+        if proxy_config.get('host'):
+            self.proxy_host_entry.insert(0, proxy_config['host'])
+        if proxy_config.get('port'):
+            self.proxy_port_entry.insert(0, proxy_config['port'])
+        if proxy_config.get('login'):
+            self.proxy_login_entry.insert(0, proxy_config['login'])
+        if proxy_config.get('password'):
+            self.proxy_password_entry.insert(0, proxy_config['password'])
+
+        # Octobrowser API token
+        octo_config = self.config.get('octobrowser', {})
+        if octo_config.get('api_token'):
+            self.api_token_entry.insert(0, octo_config['api_token'])
+
+        # UI настройки
+        ui_settings = self.config.get('ui_settings', {})
+        if ui_settings.get('automation_framework'):
+            self.automation_framework_var.set(ui_settings['automation_framework'])
+        if ui_settings.get('playwright_target'):
+            self.playwright_target_var.set(ui_settings['playwright_target'])
+        if ui_settings.get('last_csv_path'):
+            self.csv_path_entry.insert(0, ui_settings['last_csv_path'])
+
+    def save_settings(self):
+        """Сохраняет текущие настройки из UI в config"""
+        # SMS настройки
+        self.config.setdefault('sms', {})
+        self.config['sms']['api_key'] = self.sms_api_key_entry.get().strip()
+        self.config['sms']['service'] = self.sms_service_var.get()
+        self.config['sms']['provider'] = self.sms_provider_var.get()
+
+        # Proxy настройки
+        self.config.setdefault('proxy', {})
+        self.config['proxy']['enabled'] = self.use_proxy_var.get()
+        self.config['proxy']['type'] = self.proxy_type_var.get()
+        self.config['proxy']['host'] = self.proxy_host_entry.get().strip()
+        self.config['proxy']['port'] = self.proxy_port_entry.get().strip()
+        self.config['proxy']['login'] = self.proxy_login_entry.get().strip()
+        self.config['proxy']['password'] = self.proxy_password_entry.get().strip()
+
+        # Octobrowser API token
+        self.config.setdefault('octobrowser', {})
+        self.config['octobrowser']['api_token'] = self.api_token_entry.get().strip()
+
+        # UI настройки
+        self.config.setdefault('ui_settings', {})
+        self.config['ui_settings']['automation_framework'] = self.automation_framework_var.get()
+        self.config['ui_settings']['playwright_target'] = self.playwright_target_var.get()
+        self.config['ui_settings']['last_csv_path'] = self.csv_path_entry.get().strip()
+
+        # Сохранить в файл
+        self.save_config()
 
     def init_api(self, show_messages: bool = True):
         """
@@ -1244,6 +1336,9 @@ except Exception as e:
     def generate_script(self):
         """Генерация скрипта"""
         try:
+            # Сохранить текущие настройки
+            self.save_settings()
+
             options = self.collect_options()
             user_code = self.code_editor.get("1.0", tk.END).strip()
 
