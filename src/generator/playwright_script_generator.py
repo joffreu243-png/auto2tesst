@@ -58,6 +58,7 @@ class PlaywrightScriptGenerator:
 import asyncio
 import csv
 import time
+import random
 import requests
 from playwright.async_api import async_playwright
 from typing import Dict, List, Optional
