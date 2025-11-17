@@ -206,8 +206,8 @@ def load_data_from_csv(filename: str) -> List[Dict]:
 
     def _generate_main_iteration(self, user_code: str) -> str:
         """Генерирует главную функцию итерации"""
-        # Отступ для user_code
-        indented_code = '\n'.join('    ' + line if line.strip() else ''
+        # Отступ для user_code (12 пробелов - внутри async with блока)
+        indented_code = '\n'.join(' ' * 12 + line if line.strip() else ''
                                   for line in user_code.split('\n'))
 
         return f'''# ============================================================

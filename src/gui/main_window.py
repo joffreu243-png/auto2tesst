@@ -420,14 +420,6 @@ Selenium:
 
         self.toggle_extensions_options()
 
-        # === AUTOMATION FRAMEWORK ===
-        framework_frame = ttk.LabelFrame(scrollable_frame, text="🤖 Фреймворк автоматизации", padding=10)
-        framework_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        self.use_selenium_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(framework_frame, text="Использовать Selenium",
-                       variable=self.use_selenium_var).pack(anchor=tk.W)
-
         # === ПАРАМЕТРИЗАЦИЯ И МУЛЬТИЗАПУСК ===
         param_frame = ttk.LabelFrame(scrollable_frame, text="🔄 Параметризация и мультизапуск", padding=10)
         param_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -767,7 +759,7 @@ except Exception as e:
             'api_base_url': self.config['octobrowser']['api_base_url'],
             'create_profile': self.create_profile_var.get(),
             'cleanup_profile': self.cleanup_profile_var.get(),
-            'use_selenium': self.use_selenium_var.get(),
+            'use_selenium': self.automation_framework_var.get() == 'selenium',  # True только для Selenium
             'use_cookies': self.use_cookies_var.get(),
             'use_bookmarks': self.use_bookmarks_var.get(),
             'use_extensions': self.use_extensions_var.get(),
