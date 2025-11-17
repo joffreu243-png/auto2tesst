@@ -135,81 +135,40 @@ class PlaywrightParser:
         """
         Извлекает Playwright селектор из строки кода
 
-        Поддерживаемые селекторы:
-        - page.getByRole('button', { name: 'Click me' })
-        - page.getByTestId('submit-button')
-        - page.getByText('Submit')
-        - page.getByLabel('Email')
-        - page.getByPlaceholder('Enter email')
-        - page.locator('#id')
+        Поддерживает полные цепочки методов:
+        - page.locator("div").filter(has_text="...").first.click()
+        - page.get_by_role('button', name='Submit').click()
+        - page.get_by_test_id('submit').fill("text")
         """
-        # get_by_role (Python style) - поддержка параметра name=
-        role_match = re.search(r"get_by_role\(['\"](\w+)['\"]\s*(?:,\s*name\s*=\s*['\"](.+?)['\"]\s*)?\)", line)
-        if role_match:
-            role = role_match.group(1)
-            name = role_match.group(2) if role_match.group(2) else None
-            return {
-                'type': 'role',
-                'role': role,
-                'name': name,
-                'original': line
-            }
+        # Извлечь полную цепочку от page. до действия (.click(), .fill(), .type())
+        # Ищем от page. до .click()/.fill()/.type()
+        chain_match = re.search(r'page\.(.+?)\.(?:click|fill|type)\s*\(', line)
+        if not chain_match:
+            return None
 
-        # get_by_test_id (Python style)
-        testid_match = re.search(r"get_by_test_id\(['\"](.+?)['\"]\)", line)
-        if testid_match:
-            return {
-                'type': 'testid',
-                'value': testid_match.group(1),
-                'original': line
-            }
+        chain = chain_match.group(1)  # Цепочка без page. и без .click()
 
-        # get_by_text (Python style)
-        text_match = re.search(r"get_by_text\(['\"](.+?)['\"]\)", line)
-        if text_match:
-            return {
-                'type': 'text',
-                'value': text_match.group(1),
-                'original': line
-            }
+        # Проверить, есть ли модификаторы (.first, .last, .nth())
+        modifier = None
+        if '.first' in chain:
+            modifier = 'first'
+            chain = chain.replace('.first', '')
+        elif '.last' in chain:
+            modifier = 'last'
+            chain = chain.replace('.last', '')
+        elif '.nth(' in chain:
+            nth_match = re.search(r'\.nth\((\d+)\)', chain)
+            if nth_match:
+                modifier = f'nth({nth_match.group(1)})'
+                chain = re.sub(r'\.nth\(\d+\)', '', chain)
 
-        # get_by_label (Python style)
-        label_match = re.search(r"get_by_label\(['\"](.+?)['\"]\)", line)
-        if label_match:
-            return {
-                'type': 'label',
-                'value': label_match.group(1),
-                'original': line
-            }
-
-        # get_by_placeholder (Python style)
-        placeholder_match = re.search(r"get_by_placeholder\(['\"](.+?)['\"]\)", line)
-        if placeholder_match:
-            return {
-                'type': 'placeholder',
-                'value': placeholder_match.group(1),
-                'original': line
-            }
-
-        # filter(has_text=...) - извлечь текст из filter
-        filter_match = re.search(r"filter\(has_text\s*=\s*['\"](.+?)['\"]\)", line)
-        if filter_match:
-            return {
-                'type': 'filter_text',
-                'value': filter_match.group(1),
-                'original': line
-            }
-
-        # locator (CSS/XPath)
-        locator_match = re.search(r"locator\(['\"](.+?)['\"]\)", line)
-        if locator_match:
-            return {
-                'type': 'locator',
-                'value': locator_match.group(1),
-                'original': line
-            }
-
-        return None
+        # Сохранить полную цепочку для генерации
+        return {
+            'type': 'chain',
+            'chain': chain.strip(),
+            'modifier': modifier,
+            'original': line
+        }
 
     def _optimize_actions(self, actions: List[Dict]) -> List[Dict]:
         """
@@ -277,6 +236,33 @@ class PlaywrightParser:
 
         sel_type = selector.get('type')
 
+        # Для цепочки методов - попытаться извлечь метку из строки
+        if sel_type == 'chain':
+            chain = selector.get('chain', '')
+
+            # Искать get_by_label
+            label_match = re.search(r"get_by_label\(['\"](.+?)['\"]\)", chain)
+            if label_match:
+                return label_match.group(1)
+
+            # Искать get_by_placeholder
+            placeholder_match = re.search(r"get_by_placeholder\(['\"](.+?)['\"]\)", chain)
+            if placeholder_match:
+                return placeholder_match.group(1)
+
+            # Искать name= в get_by_role
+            name_match = re.search(r"name\s*=\s*['\"](.+?)['\"]", chain)
+            if name_match:
+                return name_match.group(1)
+
+            # Искать get_by_test_id
+            testid_match = re.search(r"get_by_test_id\(['\"](.+?)['\"]\)", chain)
+            if testid_match:
+                return testid_match.group(1)
+
+            return None
+
+        # Старые типы для обратной совместимости
         if sel_type == 'label':
             return selector.get('value')
         elif sel_type == 'placeholder':
@@ -360,14 +346,14 @@ class PlaywrightParser:
         if url:
             code_lines.append(f'# Переход на страницу')
             code_lines.append(f'await page.goto("{url}")')
-            code_lines.append('await page.wait_for_load_state("networkidle")')
+            code_lines.append('await page.wait_for_load_state("load")  # Ждем загрузки DOM')
             code_lines.append('')
 
         for action in actions:
             if action['type'] == 'goto':
                 code_lines.append(f'# Переход на страницу')
                 code_lines.append(f'await page.goto("{action["url"]}")')
-                code_lines.append('await page.wait_for_load_state("networkidle")')
+                code_lines.append('await page.wait_for_load_state("load")  # Ждем загрузки DOM')
                 code_lines.append('')
 
             elif action['type'] == 'click':
@@ -400,6 +386,24 @@ class PlaywrightParser:
         """Генерирует код селектора Playwright"""
         sel_type = selector['type']
 
+        # Новый тип: полная цепочка методов
+        if sel_type == 'chain':
+            chain = selector['chain']
+            modifier = selector.get('modifier')
+
+            # Построить полный селектор
+            result = chain
+            if modifier:
+                if modifier == 'first':
+                    result = f"{result}.first"
+                elif modifier == 'last':
+                    result = f"{result}.last"
+                elif modifier.startswith('nth('):
+                    result = f"{result}.{modifier}"
+
+            return result
+
+        # Старые типы для обратной совместимости
         if sel_type == 'role':
             role = selector['role']
             name = selector.get('name')
