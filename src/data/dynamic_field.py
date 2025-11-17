@@ -1,7 +1,7 @@
 """
 Система динамических полей для получения данных из SMS провайдеров
 """
-from typing import Dict, Optional, Any, Callable
+from typing import Dict, Optional, Any, Callable, List
 from enum import Enum
 
 
@@ -294,7 +294,3 @@ class DynamicFieldManager:
             manager.add_field(field)
 
         return manager
-
-
-# Импорт для совместимости
-from typing import List
