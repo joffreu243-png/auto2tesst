@@ -17,6 +17,7 @@ from src.generator.script_generator import ScriptGenerator
 from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
+from src.utils.playwright_parser import PlaywrightParser
 
 
 class OctobrowserScriptBuilder:
@@ -37,6 +38,7 @@ class OctobrowserScriptBuilder:
         self.runner.set_output_callback(self.append_output)
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
+        self.playwright_parser = PlaywrightParser()
 
         # Данные для импортированного скрипта
         self.imported_data = None  # Извлеченные данные из внешнего скрипта
@@ -490,8 +492,10 @@ except Exception as e:
         buttons_frame = ttk.Frame(parent)
         buttons_frame.pack(fill=tk.X, padx=5, pady=5)
 
+        ttk.Button(buttons_frame, text="🎭 Импорт Playwright",
+                  command=self.import_playwright_code, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="📥 Импорт Selenium IDE",
-                  command=self.import_selenium_ide_file, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+                  command=self.import_selenium_ide_file).pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="📋 Импорт скрипта",
                   command=self.import_external_script).pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="🔨 Сгенерировать скрипт",
@@ -907,6 +911,132 @@ except Exception as e:
         self.output_text.insert(tk.END, text)
         self.output_text.see(tk.END)
         self.output_text.update_idletasks()
+
+    def import_playwright_code(self):
+        """Импортирует код Playwright теста"""
+        # Создать диалоговое окно
+        import_window = tk.Toplevel(self.root)
+        import_window.title("🎭 Импорт Playwright кода")
+        import_window.geometry("900x700")
+
+        # Инструкция
+        instruction_frame = ttk.LabelFrame(import_window, text="📖 Инструкция", padding=10)
+        instruction_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        instruction_text = """
+Вставьте код Playwright теста
+
+КАК ПОЛУЧИТЬ КОД:
+1. Установите Playwright: npm install -D @playwright/test
+2. Запишите тест: npx playwright codegen https://example.com
+3. Скопируйте сгенерированный код
+4. Вставьте его ниже
+
+ПРИМЕР КОДА:
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('https://example.com/');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await page.getByLabel('Email').fill('test@example.com');
+});
+
+Система автоматически:
+✅ Извлечёт все вводимые значения (fill, type)
+✅ Создаст параметры для CSV
+✅ Сгенерирует код с подстановкой данных
+        """
+        ttk.Label(instruction_frame, text=instruction_text, justify=tk.LEFT).pack()
+
+        # Поле для ввода кода
+        code_frame = ttk.LabelFrame(import_window, text="📝 Код Playwright теста", padding=10)
+        code_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        code_text = scrolledtext.ScrolledText(code_frame, wrap=tk.WORD, width=80, height=25)
+        code_text.pack(fill=tk.BOTH, expand=True)
+
+        # Кнопки
+        buttons_frame = ttk.Frame(import_window)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        def load_example():
+            example_code = """import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('https://www.testpagekfkfe.com/');
+  await page.getByTestId('nav').getByRole('link', { name: 'Get started' }).click();
+  await page.getByRole('textbox', { name: 'First name' }).fill('Adam');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Fisher');
+  await page.getByRole('textbox', { name: 'Email' }).fill('test@gmail.com');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('textbox', { name: 'Date of birth' }).fill('10 / 30 / 1995');
+  await page.getByRole('button', { name: 'Next' }).click();
+});"""
+            code_text.delete("1.0", tk.END)
+            code_text.insert("1.0", example_code)
+
+        def process_import():
+            code = code_text.get("1.0", tk.END).strip()
+            if not code:
+                messagebox.showwarning("Предупреждение", "Вставьте код Playwright для импорта")
+                return
+
+            try:
+                # Парсим Playwright код
+                self.imported_data = self.playwright_parser.parse_playwright_code(code)
+
+                # Показать информацию
+                info_msg = f"✅ Playwright тест успешно импортирован!\n\n"
+                info_msg += f"URL: {self.imported_data['url']}\n"
+                info_msg += f"Действий: {len(self.imported_data['actions'])}\n"
+                info_msg += f"Извлечено значений: {len(self.imported_data['values'])}\n\n"
+
+                # Добавить список действий с селекторами
+                info_msg += "СПИСОК ДЕЙСТВИЙ:\n"
+                info_msg += "=" * 50 + "\n"
+                for i, action in enumerate(self.imported_data['actions'], 1):
+                    action_type = action['type'].upper()
+                    if action['type'] == 'goto':
+                        info_msg += f"{i}. {action_type}: {action['url']}\n"
+                    elif 'selector' in action:
+                        sel = action['selector']
+                        sel_type = sel.get('type', 'unknown')
+                        info_msg += f"{i}. {action_type}: {sel_type}\n"
+                    else:
+                        info_msg += f"{i}. {action_type}\n"
+                info_msg += "=" * 50 + "\n\n"
+
+                if self.imported_data['values']:
+                    info_msg += f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n\n"
+                    info_msg += "Переходим к редактированию данных..."
+                    messagebox.showinfo("Успешный импорт", info_msg)
+
+                    # Инициализировать данные для CSV
+                    self.csv_data_rows = [self.imported_data['values']]
+
+                    # Закрыть окно импорта
+                    import_window.destroy()
+
+                    # Показать редактор данных
+                    self.show_imported_data_editor()
+                else:
+                    info_msg += "Значения для параметризации не найдены.\n"
+                    info_msg += "Код вставлен в редактор."
+                    messagebox.showinfo("Успешный импорт", info_msg)
+
+                    # Вставить код в редактор
+                    self.code_editor.delete("1.0", tk.END)
+                    self.code_editor.insert("1.0", self.imported_data['converted_code'])
+                    import_window.destroy()
+
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Ошибка импорта Playwright кода:\n{str(e)}")
+
+        ttk.Button(buttons_frame, text="📋 Загрузить пример", command=load_example).pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="✅ Импортировать", command=process_import,
+                  style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="❌ Отмена",
+                  command=import_window.destroy).pack(side=tk.LEFT, padx=2)
 
     def import_selenium_ide_file(self):
         """Импортирует .side файл Selenium IDE"""

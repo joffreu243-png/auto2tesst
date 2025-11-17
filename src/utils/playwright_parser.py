@@ -1,0 +1,394 @@
+"""
+Парсер для Playwright кода
+Конвертирует Playwright тесты в формат auto2tesst с параметризацией
+"""
+
+import re
+from typing import Dict, List, Optional
+
+
+class PlaywrightParser:
+    """Парсер для Playwright тестов"""
+
+    def __init__(self):
+        self.extracted_values = []  # Извлеченные значения для параметризации
+        self.variable_names = []     # Имена переменных
+
+    def parse_playwright_code(self, code: str) -> Dict:
+        """
+        Парсит Playwright код и извлекает действия
+
+        Args:
+            code: Исходный код Playwright теста
+
+        Returns:
+            Dict с информацией:
+            {
+                'url': '...',
+                'actions': [...],
+                'values': [...],
+                'csv_headers': [...],
+                'converted_code': '...'
+            }
+        """
+        self.extracted_values = []
+        self.variable_names = []
+
+        # Извлечь URL
+        url = self._extract_url(code)
+
+        # Извлечь все действия
+        actions = self._extract_actions(code)
+
+        # Оптимизировать действия
+        optimized_actions = self._optimize_actions(actions)
+
+        # Извлечь значения для параметризации
+        self._extract_values_from_actions(optimized_actions)
+
+        # Сгенерировать конвертированный код
+        converted_code = self._generate_converted_code(optimized_actions, url)
+
+        return {
+            'url': url,
+            'actions': optimized_actions,
+            'values': self.extracted_values,
+            'csv_headers': self.variable_names,
+            'converted_code': converted_code
+        }
+
+    def _extract_url(self, code: str) -> str:
+        """Извлекает URL из page.goto()"""
+        match = re.search(r'page\.goto\(["\'](.+?)["\']\)', code)
+        if match:
+            return match.group(1)
+        return ''
+
+    def _extract_actions(self, code: str) -> List[Dict]:
+        """Извлекает действия из Playwright кода"""
+        actions = []
+        lines = code.split('\n')
+
+        for i, line in enumerate(lines):
+            line = line.strip()
+
+            # Пропустить комментарии и пустые строки
+            if not line or line.startswith('#') or line.startswith('//'):
+                continue
+
+            # page.goto() - переход на страницу
+            if 'page.goto(' in line:
+                url_match = re.search(r'page\.goto\(["\'](.+?)["\']\)', line)
+                if url_match:
+                    actions.append({
+                        'type': 'goto',
+                        'url': url_match.group(1),
+                        'line': i
+                    })
+                continue
+
+            # .click() - клик
+            if '.click()' in line:
+                selector = self._extract_playwright_selector(line)
+                if selector:
+                    actions.append({
+                        'type': 'click',
+                        'selector': selector,
+                        'line': i
+                    })
+                continue
+
+            # .fill() - ввод текста
+            if '.fill(' in line:
+                selector = self._extract_playwright_selector(line)
+                value_match = re.search(r"\.fill\(['\"](.+?)['\"]\)", line)
+                if selector and value_match:
+                    actions.append({
+                        'type': 'fill',
+                        'selector': selector,
+                        'value': value_match.group(1),
+                        'line': i
+                    })
+                continue
+
+            # .type() - постепенный ввод текста
+            if '.type(' in line:
+                selector = self._extract_playwright_selector(line)
+                value_match = re.search(r"\.type\(['\"](.+?)['\"]\)", line)
+                if selector and value_match:
+                    actions.append({
+                        'type': 'fill',  # Используем fill вместо type
+                        'selector': selector,
+                        'value': value_match.group(1),
+                        'line': i
+                    })
+                continue
+
+        return actions
+
+    def _extract_playwright_selector(self, line: str) -> Optional[Dict]:
+        """
+        Извлекает Playwright селектор из строки кода
+
+        Поддерживаемые селекторы:
+        - page.getByRole('button', { name: 'Click me' })
+        - page.getByTestId('submit-button')
+        - page.getByText('Submit')
+        - page.getByLabel('Email')
+        - page.getByPlaceholder('Enter email')
+        - page.locator('#id')
+        """
+        # getByRole
+        role_match = re.search(r"getByRole\(['\"](\w+)['\"](?:,\s*\{\s*name:\s*['\"](.+?)['\"]\s*\})?\)", line)
+        if role_match:
+            role = role_match.group(1)
+            name = role_match.group(2) if role_match.group(2) else None
+            return {
+                'type': 'role',
+                'role': role,
+                'name': name,
+                'original': line
+            }
+
+        # getByTestId
+        testid_match = re.search(r"getByTestId\(['\"](.+?)['\"]\)", line)
+        if testid_match:
+            return {
+                'type': 'testid',
+                'value': testid_match.group(1),
+                'original': line
+            }
+
+        # getByText
+        text_match = re.search(r"getByText\(['\"](.+?)['\"]\)", line)
+        if text_match:
+            return {
+                'type': 'text',
+                'value': text_match.group(1),
+                'original': line
+            }
+
+        # getByLabel
+        label_match = re.search(r"getByLabel\(['\"](.+?)['\"]\)", line)
+        if label_match:
+            return {
+                'type': 'label',
+                'value': label_match.group(1),
+                'original': line
+            }
+
+        # getByPlaceholder
+        placeholder_match = re.search(r"getByPlaceholder\(['\"](.+?)['\"]\)", line)
+        if placeholder_match:
+            return {
+                'type': 'placeholder',
+                'value': placeholder_match.group(1),
+                'original': line
+            }
+
+        # locator (CSS/XPath)
+        locator_match = re.search(r"locator\(['\"](.+?)['\"]\)", line)
+        if locator_match:
+            return {
+                'type': 'locator',
+                'value': locator_match.group(1),
+                'original': line
+            }
+
+        return None
+
+    def _optimize_actions(self, actions: List[Dict]) -> List[Dict]:
+        """
+        Оптимизирует действия:
+        - Убирает избыточные клики перед fill
+        """
+        optimized = []
+        i = 0
+
+        while i < len(actions):
+            current = actions[i]
+            next_action = actions[i + 1] if i + 1 < len(actions) else None
+
+            # Если это клик и следующее - fill на том же элементе, пропустить клик
+            if (current['type'] == 'click' and
+                next_action and
+                next_action['type'] == 'fill' and
+                current.get('selector') == next_action.get('selector')):
+                # Пропустить клик, он избыточен
+                i += 1
+                continue
+
+            optimized.append(current)
+            i += 1
+
+        return optimized
+
+    def _extract_values_from_actions(self, actions: List[Dict]):
+        """Извлекает значения из действий для параметризации"""
+        self.extracted_values = []
+        self.variable_names = []
+
+        for action in actions:
+            if action['type'] == 'fill' and 'value' in action:
+                value = action['value']
+                var_name = self._generate_variable_name(value, len(self.extracted_values))
+
+                self.extracted_values.append(value)
+                self.variable_names.append(var_name)
+
+    def _generate_variable_name(self, value: str, index: int) -> str:
+        """Генерирует имя переменной на основе значения"""
+        # Определить тип значения
+        if '@' in value and '.' in value:
+            return 'email'
+
+        # Дата с слешами
+        if '/' in value and any(char.isdigit() for char in value):
+            return 'date_of_birth'
+
+        if value.isdigit():
+            if len(value) == 8:
+                return 'date_of_birth'
+            elif len(value) >= 10:
+                return 'phone'
+            else:
+                return 'number'
+
+        # Если первое значение - вероятно firstname, второе - lastname
+        if index == 0:
+            return 'firstname'
+        elif index == 1:
+            return 'lastname'
+        elif index == 2 and '@' not in value:
+            return 'address'
+        else:
+            # Простое текстовое значение
+            if len(value) <= 10:
+                clean = re.sub(r'[^a-z0-9]', '', value.lower())
+                if clean:
+                    return clean[:10]
+            return f'field_{index + 1}'
+
+    def _generate_converted_code(self, actions: List[Dict], url: str) -> str:
+        """Генерирует конвертированный код для Playwright"""
+        code_lines = []
+        var_index = 0
+
+        # Добавить переход на страницу (если есть)
+        if url:
+            code_lines.append(f'# Переход на страницу')
+            code_lines.append(f'await page.goto("{url}")')
+            code_lines.append('await page.wait_for_load_state("networkidle")')
+            code_lines.append('')
+
+        for action in actions:
+            if action['type'] == 'goto':
+                code_lines.append(f'# Переход на страницу')
+                code_lines.append(f'await page.goto("{action["url"]}")')
+                code_lines.append('await page.wait_for_load_state("networkidle")')
+                code_lines.append('')
+
+            elif action['type'] == 'click':
+                selector = action['selector']
+                selector_code = self._generate_selector_code(selector)
+
+                code_lines.append('# Клик по элементу')
+                code_lines.append(f'print(f"DEBUG: Клик по: {selector_code}")')
+                code_lines.append(f'await page.{selector_code}.click()')
+                code_lines.append('print("[OK] Клик выполнен")')
+                code_lines.append('await page.wait_for_timeout(2000)  # Пауза 2 сек')
+                code_lines.append('')
+
+            elif action['type'] == 'fill':
+                selector = action['selector']
+                selector_code = self._generate_selector_code(selector)
+                var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
+
+                code_lines.append(f'# Ввод текста: {var_name}')
+                code_lines.append(f'print(f"DEBUG: Заполнение поля {var_name}: {selector_code}")')
+                code_lines.append(f'await page.{selector_code}.fill(data_row["{var_name}"])')
+                code_lines.append(f'print(f"[OK] Введено {{data_row[\'{var_name}\']}}")')
+                code_lines.append('await page.wait_for_timeout(1000)  # Пауза 1 сек')
+                code_lines.append('')
+                var_index += 1
+
+        return '\n'.join(code_lines)
+
+    def _generate_selector_code(self, selector: Dict) -> str:
+        """Генерирует код селектора Playwright"""
+        sel_type = selector['type']
+
+        if sel_type == 'role':
+            role = selector['role']
+            name = selector.get('name')
+            if name:
+                # Экранировать кавычки
+                name_escaped = name.replace("'", "\\'")
+                return f"get_by_role('{role}', name='{name_escaped}')"
+            else:
+                return f"get_by_role('{role}')"
+
+        elif sel_type == 'testid':
+            value = selector['value'].replace("'", "\\'")
+            return f"get_by_test_id('{value}')"
+
+        elif sel_type == 'text':
+            value = selector['value'].replace("'", "\\'")
+            return f"get_by_text('{value}')"
+
+        elif sel_type == 'label':
+            value = selector['value'].replace("'", "\\'")
+            return f"get_by_label('{value}')"
+
+        elif sel_type == 'placeholder':
+            value = selector['value'].replace("'", "\\'")
+            return f"get_by_placeholder('{value}')"
+
+        elif sel_type == 'locator':
+            value = selector['value'].replace("'", "\\'")
+            return f"locator('{value}')"
+
+        return "locator('body')"
+
+    def generate_csv_content(self, num_rows: int = 3) -> str:
+        """Генерирует содержимое CSV файла"""
+        if not self.variable_names:
+            return ''
+
+        # Заголовки
+        csv_lines = [','.join(self.variable_names)]
+
+        # Первая строка - оригинальные значения
+        csv_lines.append(','.join(self.extracted_values))
+
+        # Дополнительные строки с примерами
+        for i in range(num_rows - 1):
+            row_values = []
+            for j, var_name in enumerate(self.variable_names):
+                original_value = self.extracted_values[j] if j < len(self.extracted_values) else ''
+                example_value = self._generate_example_value(var_name, original_value, i + 1)
+                row_values.append(example_value)
+            csv_lines.append(','.join(row_values))
+
+        return '\n'.join(csv_lines)
+
+    def _generate_example_value(self, var_name: str, original_value: str, index: int) -> str:
+        """Генерирует примерное значение для CSV"""
+        if var_name == 'email':
+            return f'user{index}@example.com'
+        elif var_name == 'firstname':
+            names = ['John', 'Jane', 'Bob', 'Alice', 'Charlie']
+            return names[index % len(names)]
+        elif var_name == 'lastname':
+            surnames = ['Smith', 'Doe', 'Johnson', 'Williams', 'Brown']
+            return surnames[index % len(surnames)]
+        elif var_name in ['password', 'date_of_birth', 'phone', 'number']:
+            if original_value.isdigit():
+                try:
+                    num = int(original_value) + index
+                    return str(num)
+                except:
+                    return original_value
+            return original_value
+        else:
+            return f'{original_value}_{index}' if original_value else f'value_{index}'
