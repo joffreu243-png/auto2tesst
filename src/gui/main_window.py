@@ -19,6 +19,8 @@ from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
 from src.utils.playwright_parser import PlaywrightParser
+from src.sms.provider_manager import ProviderManager
+from src.data.dynamic_field import DynamicFieldManager, DynamicField, FieldType
 
 
 class OctobrowserScriptBuilder:
@@ -41,6 +43,10 @@ class OctobrowserScriptBuilder:
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
         self.playwright_parser = PlaywrightParser()
+
+        # SMS провайдеры
+        self.sms_provider_manager = ProviderManager()
+        self.dynamic_field_manager = DynamicFieldManager()
 
         # Данные для импортированного скрипта
         self.imported_data = None  # Извлеченные данные из внешнего скрипта
@@ -465,6 +471,81 @@ Selenium:
 
         self.toggle_parametrization_options()
 
+        # === SMS SERVICES ===
+        sms_frame = ttk.LabelFrame(scrollable_frame, text="📱 SMS сервисы (номера и OTP)", padding=10)
+        sms_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.use_sms_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(sms_frame, text="Использовать SMS сервис для получения номеров и OTP",
+                       variable=self.use_sms_var,
+                       command=self.toggle_sms_options).pack(anchor=tk.W)
+
+        self.sms_options_frame = ttk.Frame(sms_frame)
+        self.sms_options_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        # Провайдер
+        ttk.Label(self.sms_options_frame, text="Провайдер:").pack(anchor=tk.W)
+        self.sms_provider_var = tk.StringVar(value="daisysms")
+        provider_combo = ttk.Combobox(self.sms_options_frame, textvariable=self.sms_provider_var,
+                                     values=["daisysms"], width=25, state="readonly")
+        provider_combo.pack(fill=tk.X, pady=(0, 5))
+
+        # API ключ
+        ttk.Label(self.sms_options_frame, text="API ключ:").pack(anchor=tk.W)
+        self.sms_api_key_entry = ttk.Entry(self.sms_options_frame, width=35, show="*")
+        self.sms_api_key_entry.pack(fill=tk.X, pady=(0, 5))
+
+        # Сервис (Discord, Google, WhatsApp и т.д.)
+        ttk.Label(self.sms_options_frame, text="Сервис для активации:").pack(anchor=tk.W)
+        self.sms_service_var = tk.StringVar(value="ds")
+
+        services_frame = ttk.Frame(self.sms_options_frame)
+        services_frame.pack(fill=tk.X, pady=(0, 5))
+
+        service_combo = ttk.Combobox(services_frame, textvariable=self.sms_service_var,
+                                    values=["ds", "go", "wa", "tg", "fb", "ig", "tw", "other"],
+                                    width=10, state="readonly")
+        service_combo.pack(side=tk.LEFT)
+
+        # Описание кодов сервисов
+        service_desc = ttk.Label(services_frame,
+                                text="ds=Discord, go=Google, wa=WhatsApp, tg=Telegram",
+                                font=("TkDefaultFont", 7), foreground="gray")
+        service_desc.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Кнопки управления
+        sms_buttons_frame = ttk.Frame(self.sms_options_frame)
+        sms_buttons_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(sms_buttons_frame, text="🔌 Подключить",
+                  command=self.connect_sms_provider).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(sms_buttons_frame, text="💰 Баланс",
+                  command=self.check_sms_balance).pack(side=tk.LEFT, padx=(0, 5))
+
+        # Статус подключения
+        self.sms_status_label = ttk.Label(self.sms_options_frame, text="✗ Не подключен",
+                                         foreground="red")
+        self.sms_status_label.pack(pady=(5, 0))
+
+        # Инфо
+        info_text = """
+💡 SMS сервис используется для динамического получения
+номеров телефонов и OTP кодов.
+
+Как это работает:
+1. Включите опцию "Использовать SMS сервис"
+2. Введите API ключ от DaisySMS
+3. Выберите сервис (Discord, Google и т.д.)
+4. Импортируйте скрипт - система автоматически
+   определит поля phone_number и otp_code
+5. При выполнении скрипта номер и OTP будут
+   получены автоматически из API!
+        """
+        ttk.Label(self.sms_options_frame, text=info_text.strip(), justify=tk.LEFT,
+                 foreground="blue", font=("TkDefaultFont", 8)).pack(anchor=tk.W, pady=(10, 0))
+
+        self.toggle_sms_options()
+
     def create_right_panel(self, parent):
         """Создание правой панели с кодом"""
         # Верхняя часть - редактор кода
@@ -601,6 +682,115 @@ except Exception as e:
                             subchild.configure(state=state)
             except:
                 pass
+
+    def toggle_sms_options(self):
+        """Переключение опций SMS сервисов"""
+        state = "normal" if self.use_sms_var.get() else "disabled"
+
+        # Включение/выключение всех элементов управления
+        for child in self.sms_options_frame.winfo_children():
+            try:
+                if isinstance(child, (ttk.Entry, ttk.Button, ttk.Combobox)):
+                    child.configure(state=state)
+                elif isinstance(child, ttk.Frame):
+                    # Для фреймов обрабатываем дочерние элементы
+                    for subchild in child.winfo_children():
+                        if isinstance(subchild, (ttk.Entry, ttk.Button, ttk.Combobox)):
+                            subchild.configure(state=state)
+            except:
+                pass
+
+    def connect_sms_provider(self):
+        """Подключение к SMS провайдеру"""
+        provider_name = self.sms_provider_var.get()
+        api_key = self.sms_api_key_entry.get().strip()
+
+        if not api_key:
+            messagebox.showwarning("Предупреждение", "Введите API ключ")
+            return
+
+        try:
+            # Создать провайдер
+            provider = self.sms_provider_manager.create_provider(provider_name, api_key)
+
+            # Проверить подключение
+            self.sms_status_label.config(text="⏳ Подключение...", foreground="orange")
+            self.root.update_idletasks()
+
+            balance_info = provider.get_balance()
+
+            if balance_info['success']:
+                balance = balance_info['balance']
+                currency = balance_info['currency']
+
+                self.sms_status_label.config(
+                    text=f"✓ Подключен | Баланс: ${balance:.2f} {currency}",
+                    foreground="green"
+                )
+
+                messagebox.showinfo(
+                    "Успех",
+                    f"Успешно подключено к {provider_name}!\n\n"
+                    f"Баланс: ${balance:.2f} {currency}\n\n"
+                    f"Теперь система автоматически будет получать\n"
+                    f"номера телефонов и OTP коды из API."
+                )
+            else:
+                error = balance_info.get('error', 'Неизвестная ошибка')
+                self.sms_status_label.config(
+                    text=f"✗ Ошибка подключения",
+                    foreground="red"
+                )
+                messagebox.showerror(
+                    "Ошибка",
+                    f"Не удалось подключиться к {provider_name}:\n\n{error}"
+                )
+
+        except Exception as e:
+            self.sms_status_label.config(text="✗ Ошибка", foreground="red")
+            messagebox.showerror("Ошибка", f"Ошибка подключения:\n{str(e)}")
+
+    def check_sms_balance(self):
+        """Проверка баланса SMS провайдера"""
+        provider = self.sms_provider_manager.get_active_provider()
+
+        if not provider:
+            messagebox.showwarning(
+                "Предупреждение",
+                "Сначала подключитесь к SMS провайдеру"
+            )
+            return
+
+        try:
+            balance_info = provider.get_balance()
+
+            if balance_info['success']:
+                balance = balance_info['balance']
+                currency = balance_info['currency']
+
+                # Получить список сервисов
+                services_info = provider.get_services()
+                services_list = ""
+
+                if services_info['success']:
+                    for service in services_info['services'][:10]:  # Первые 10
+                        code = service['code']
+                        name = service['name']
+                        price = service['price']
+                        services_list += f"  • {name} ({code}): ${price:.2f}\n"
+
+                messagebox.showinfo(
+                    "Баланс",
+                    f"Баланс: ${balance:.2f} {currency}\n\n"
+                    f"Популярные сервисы:\n{services_list}\n"
+                    f"Выбранный сервис: {self.sms_service_var.get()}"
+                )
+            else:
+                error = balance_info.get('error', 'Неизвестная ошибка')
+                messagebox.showerror("Ошибка", f"Ошибка получения баланса:\n{error}")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка:\n{str(e)}")
 
     def select_csv_file(self):
         """Выбор CSV файла"""
@@ -873,7 +1063,13 @@ except Exception as e:
                     'api_token': options.get('api_token', ''),
                     'use_proxy': 'proxy' in options.get('profile_config', {}),
                     'proxy': options.get('profile_config', {}).get('proxy', {}),
-                    'csv_filename': Path(options.get('data_file_path', 'data.csv')).name if options.get('data_file_path') else 'data.csv'
+                    'csv_filename': Path(options.get('data_file_path', 'data.csv')).name if options.get('data_file_path') else 'data.csv',
+                    'use_sms': self.use_sms_var.get(),
+                    'sms': {
+                        'provider': self.sms_provider_var.get(),
+                        'api_key': self.sms_api_key_entry.get().strip(),
+                        'service': self.sms_service_var.get()
+                    }
                 }
                 script_content = self.playwright_generator.generate_script(user_code, playwright_config)
             else:

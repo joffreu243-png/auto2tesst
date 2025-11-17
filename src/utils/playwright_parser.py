@@ -5,6 +5,7 @@
 
 import re
 from typing import Dict, List, Optional
+from .phone_detector import PhoneAndOTPDetector
 
 
 class PlaywrightParser:
@@ -13,6 +14,8 @@ class PlaywrightParser:
     def __init__(self):
         self.extracted_values = []  # Извлеченные значения для параметризации
         self.variable_names = []     # Имена переменных
+        self.field_types = []         # Типы полей ('phone', 'otp', 'unknown')
+        self.detector = PhoneAndOTPDetector()
 
     def parse_playwright_code(self, code: str) -> Dict:
         """
@@ -227,17 +230,87 @@ class PlaywrightParser:
         """Извлекает значения из действий для параметризации"""
         self.extracted_values = []
         self.variable_names = []
+        self.field_types = []
+
+        # Собрать все значения и метки
+        values = []
+        labels = []
 
         for action in actions:
             if action['type'] == 'fill' and 'value' in action:
-                value = action['value']
-                var_name = self._generate_variable_name(value, len(self.extracted_values))
+                values.append(action['value'])
+                # Попытаться получить метку из селектора
+                label = self._extract_label_from_selector(action.get('selector', {}))
+                labels.append(label)
 
-                self.extracted_values.append(value)
-                self.variable_names.append(var_name)
+        # Анализировать значения с помощью детектора
+        analysis = self.detector.analyze_script_data(values, labels)
 
-    def _generate_variable_name(self, value: str, index: int) -> str:
-        """Генерирует имя переменной на основе значения"""
+        # Сохранить результаты
+        for field in analysis['fields']:
+            value = field['value']
+            field_type = field['type']
+            confidence = field['confidence']
+
+            # Генерировать имя переменной на основе типа
+            var_name = self._generate_variable_name_with_type(value, field_type, len(self.extracted_values))
+
+            self.extracted_values.append(value)
+            self.variable_names.append(var_name)
+            self.field_types.append(field_type)
+
+    def _extract_label_from_selector(self, selector: Dict) -> Optional[str]:
+        """Извлекает метку из селектора для анализа типа поля"""
+        if not selector:
+            return None
+
+        sel_type = selector.get('type')
+
+        if sel_type == 'label':
+            return selector.get('value')
+        elif sel_type == 'placeholder':
+            return selector.get('value')
+        elif sel_type == 'role':
+            return selector.get('name')
+        elif sel_type == 'testid':
+            return selector.get('value')
+
+        return None
+
+    def _generate_variable_name_with_type(self, value: str, field_type: str, index: int) -> str:
+        """
+        Генерирует имя переменной на основе типа поля
+
+        Args:
+            value: Значение поля
+            field_type: Тип поля ('phone', 'otp', 'unknown')
+            index: Индекс поля
+
+        Returns:
+            Имя переменной
+        """
+        # Если тип определен детектором
+        if field_type == 'phone':
+            # Подсчитать сколько уже есть phone полей
+            phone_count = sum(1 for t in self.field_types if t == 'phone')
+            if phone_count == 0:
+                return 'phone_number'
+            else:
+                return f'phone_number_{phone_count + 1}'
+
+        elif field_type == 'otp':
+            # Подсчитать сколько уже есть OTP полей
+            otp_count = sum(1 for t in self.field_types if t == 'otp')
+            if otp_count == 0:
+                return 'otp_code'
+            else:
+                return f'otp_code_{otp_count + 1}'
+
+        # Для unknown - используем старую логику
+        return self._generate_variable_name_legacy(value, index)
+
+    def _generate_variable_name_legacy(self, value: str, index: int) -> str:
+        """Генерирует имя переменной на основе значения (старая логика)"""
         # Определить тип значения
         if '@' in value and '.' in value:
             return 'email'
@@ -249,8 +322,6 @@ class PlaywrightParser:
         if value.isdigit():
             if len(value) == 8:
                 return 'date_of_birth'
-            elif len(value) >= 10:
-                return 'phone'
             else:
                 return 'number'
 

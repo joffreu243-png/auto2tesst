@@ -15,7 +15,7 @@ class PlaywrightScriptGenerator:
 
         Args:
             user_code: Пользовательский код автоматизации
-            config: Конфигурация (API token, proxy, etc.)
+            config: Конфигурация (API token, proxy, sms, etc.)
 
         Returns:
             Полный исполняемый Python скрипт
@@ -25,13 +25,20 @@ class PlaywrightScriptGenerator:
         use_proxy = config.get('use_proxy', False)
         proxy_config = config.get('proxy', {})
         csv_filename = config.get('csv_filename', 'data.csv')
+        use_sms = config.get('use_sms', False)
+        sms_config = config.get('sms', {})
 
         # Генерация скрипта
         script = self._generate_imports()
-        script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename)
+        script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, use_sms, sms_config)
         script += self._generate_octobrowser_functions()
-        script += self._generate_csv_loader()
-        script += self._generate_main_iteration(user_code)
+
+        # Добавить SMS функции если включено
+        if use_sms:
+            script += self._generate_sms_functions(sms_config)
+
+        script += self._generate_csv_loader(use_sms)
+        script += self._generate_main_iteration(user_code, use_sms)
         script += self._generate_main_function()
 
         return script
@@ -54,7 +61,8 @@ from typing import Dict, List, Optional
 
 '''
 
-    def _generate_config(self, api_token: str, proxy_config: Dict, use_proxy: bool, csv_filename: str) -> str:
+    def _generate_config(self, api_token: str, proxy_config: Dict, use_proxy: bool,
+                         csv_filename: str, use_sms: bool, sms_config: Dict) -> str:
         """Генерирует конфигурацию"""
         config = f'''# ============================================================
 # КОНФИГУРАЦИЯ
@@ -78,6 +86,23 @@ PROXY_HOST = "{proxy_config.get('host', '')}"
 PROXY_PORT = "{proxy_config.get('port', '')}"
 PROXY_LOGIN = "{proxy_config.get('login', '')}"
 PROXY_PASSWORD = "{proxy_config.get('password', '')}"
+'''
+
+        # SMS настройки
+        config += f'''
+# SMS провайдер для получения номеров и OTP
+USE_SMS_PROVIDER = {use_sms}
+'''
+
+        if use_sms:
+            sms_provider = sms_config.get('provider', 'daisysms')
+            sms_api_key = sms_config.get('api_key', '')
+            sms_service = sms_config.get('service', 'ds')
+
+            config += f'''SMS_PROVIDER = "{sms_provider}"
+SMS_API_KEY = "{sms_api_key}"
+SMS_SERVICE = "{sms_service}"  # ds=Discord, go=Google, wa=WhatsApp, tg=Telegram
+SMS_API_BASE_URL = "https://daisysms.com/stubs/handler_api.php"
 '''
 
         config += '\n\n'
@@ -174,7 +199,144 @@ def stop_profile(profile_uuid: str) -> bool:
 
 '''
 
-    def _generate_csv_loader(self) -> str:
+    def _generate_sms_functions(self, sms_config: Dict) -> str:
+        """Генерирует функции для работы с SMS API"""
+        return '''# ============================================================
+# ФУНКЦИИ SMS ПРОВАЙДЕРА (DaisySMS)
+# ============================================================
+
+def get_phone_number() -> Optional[Dict]:
+    """
+    Получить номер телефона от SMS провайдера
+
+    Returns:
+        Dict: {'activation_id': str, 'phone_number': str} или None
+    """
+    url = SMS_API_BASE_URL
+    params = {
+        'api_key': SMS_API_KEY,
+        'action': 'getNumber',
+        'service': SMS_SERVICE
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        result = response.text.strip()
+
+        # Формат: ACCESS_NUMBER:ID:PHONE_NUMBER
+        if result.startswith('ACCESS_NUMBER:'):
+            parts = result.split(':')
+            activation_id = parts[1]
+            phone_number = parts[2]
+
+            print(f"[SMS] Получен номер: {phone_number} (ID: {activation_id})")
+            return {
+                'activation_id': activation_id,
+                'phone_number': phone_number
+            }
+        else:
+            print(f"[SMS ERROR] Ошибка получения номера: {result}")
+            return None
+
+    except Exception as e:
+        print(f"[SMS ERROR] Ошибка запроса: {e}")
+        return None
+
+
+def get_sms_code(activation_id: str, timeout: int = 180) -> Optional[str]:
+    """
+    Получить SMS код (OTP)
+
+    Args:
+        activation_id: ID активации от get_phone_number
+        timeout: Максимальное время ожидания в секундах
+
+    Returns:
+        str: OTP код или None
+    """
+    url = SMS_API_BASE_URL
+    start_time = time.time()
+    poll_interval = 3  # Минимум 3 секунды между запросами
+
+    print(f"[SMS] Ожидание SMS кода (макс. {timeout}s)...")
+
+    while (time.time() - start_time) < timeout:
+        params = {
+            'api_key': SMS_API_KEY,
+            'action': 'getStatus',
+            'id': activation_id
+        }
+
+        try:
+            response = requests.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            result = response.text.strip()
+
+            # STATUS_OK:CODE - SMS получено
+            if result.startswith('STATUS_OK:'):
+                code = result.split(':')[1]
+                print(f"[SMS] ✓ Получен OTP код: {code}")
+                return code
+
+            # STATUS_WAIT_CODE - ожидание
+            elif result == 'STATUS_WAIT_CODE':
+                elapsed = int(time.time() - start_time)
+                print(f"[SMS] Ожидание... ({elapsed}s/{timeout}s)")
+                time.sleep(poll_interval)
+                continue
+
+            # STATUS_CANCEL - отменено
+            elif result == 'STATUS_CANCEL':
+                print(f"[SMS ERROR] Активация отменена")
+                return None
+
+            # NO_ACTIVATION - неверный ID
+            elif result == 'NO_ACTIVATION':
+                print(f"[SMS ERROR] Активация не найдена")
+                return None
+
+            else:
+                print(f"[SMS] Статус: {result}")
+                time.sleep(poll_interval)
+
+        except Exception as e:
+            print(f"[SMS ERROR] Ошибка запроса: {e}")
+            time.sleep(poll_interval)
+
+    print(f"[SMS ERROR] Превышено время ожидания ({timeout}s)")
+    return None
+
+
+def cancel_sms_activation(activation_id: str) -> bool:
+    """Отменить SMS активацию"""
+    url = SMS_API_BASE_URL
+    params = {
+        'api_key': SMS_API_KEY,
+        'action': 'setStatus',
+        'id': activation_id,
+        'status': 8  # 8 = отмена
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        result = response.text.strip()
+
+        if result == 'ACCESS_CANCEL':
+            print(f"[SMS] Активация {activation_id} отменена")
+            return True
+        else:
+            print(f"[SMS ERROR] Не удалось отменить: {result}")
+            return False
+
+    except Exception as e:
+        print(f"[SMS ERROR] Ошибка отмены: {e}")
+        return False
+
+
+'''
+
+    def _generate_csv_loader(self, use_sms: bool = False) -> str:
         """Генерирует функцию загрузки CSV"""
         return '''# ============================================================
 # ЗАГРУЗКА ДАННЫХ ИЗ CSV
@@ -204,11 +366,59 @@ def load_data_from_csv(filename: str) -> List[Dict]:
 
 '''
 
-    def _generate_main_iteration(self, user_code: str) -> str:
+    def _generate_main_iteration(self, user_code: str, use_sms: bool = False) -> str:
         """Генерирует главную функцию итерации"""
         # Отступ для user_code (12 пробелов - внутри async with блока)
         indented_code = '\n'.join(' ' * 12 + line if line.strip() else ''
                                   for line in user_code.split('\n'))
+
+        # Добавить SMS блок если включено
+        sms_block = ''
+        if use_sms:
+            sms_block = '''
+        # ============================================================
+        # ПОЛУЧЕНИЕ НОМЕРА И OTP ОТ SMS ПРОВАЙДЕРА
+        # ============================================================
+
+        sms_activation_id = None
+
+        if USE_SMS_PROVIDER:
+            print("[SMS] Получение номера телефона...")
+
+            # Получить номер
+            sms_data = get_phone_number()
+            if sms_data:
+                sms_activation_id = sms_data['activation_id']
+                phone_number = sms_data['phone_number']
+
+                # Добавить номер в данные
+                data_row['phone_number'] = phone_number
+                print(f"[SMS] ✓ Номер добавлен в data_row: {phone_number}")
+            else:
+                print("[SMS ERROR] Не удалось получить номер")
+                # Продолжаем выполнение - возможно номер не нужен
+'''
+
+        # Добавить OTP блок в user_code если используется SMS
+        otp_helper = ''
+        if use_sms:
+            otp_helper = '''
+            # ============================================================
+            # ХЕЛПЕР ДЛЯ ПОЛУЧЕНИЯ OTP
+            # ============================================================
+            # Если в data_row запрашивается 'otp_code', получить его из SMS
+            if USE_SMS_PROVIDER and 'otp_code' in data_row and sms_activation_id:
+                if not data_row.get('otp_code'):  # Если еще не получен
+                    print("[SMS] Получение OTP кода...")
+                    otp_code = get_sms_code(sms_activation_id, timeout=180)
+                    if otp_code:
+                        data_row['otp_code'] = otp_code
+                        print(f"[SMS] ✓ OTP добавлен в data_row: {otp_code}")
+                    else:
+                        print("[SMS ERROR] Не удалось получить OTP")
+                        data_row['otp_code'] = ""
+
+'''
 
         return f'''# ============================================================
 # ГЛАВНАЯ ФУНКЦИЯ ИТЕРАЦИИ
@@ -232,7 +442,7 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
     print(f"Данные: {{data_row}}")
     print(f"{{'='*60}}\\n")
 
-    try:
+    try:{sms_block}
         # Создать профиль
         profile_uuid = create_profile()
         if not profile_uuid:
@@ -269,7 +479,7 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
                 return False
 
             print(f"[OK] Страница готова к автоматизации")
-
+{otp_helper}
             # ============================================================
             # ПОЛЬЗОВАТЕЛЬСКИЙ КОД АВТОМАТИЗАЦИИ
             # ============================================================
