@@ -322,7 +322,8 @@ class SeleniumIDEParser:
                 code_lines.append(')')
                 code_lines.append('element.click()')
                 code_lines.append('print("[OK] Клик выполнен")')
-                code_lines.append('time.sleep(random.uniform(2, 4))')
+                code_lines.append('# Увеличенная задержка после клика для загрузки новой страницы/элементов')
+                code_lines.append('time.sleep(random.uniform(3, 6))')
                 code_lines.append('')
 
             elif action['type'] == 'type':
@@ -330,14 +331,14 @@ class SeleniumIDEParser:
                 selector_str = selector['selector'].replace('"', '\\"')
                 var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
 
-                code_lines.append(f'# Ввод текста: {{{{{var_name}}}}}')
-                code_lines.append(f'print(f"DEBUG: Поиск элемента для ввода {{{{{var_name}}}}}: {selector["by"]}, \\"{selector_str}\\"")')
+                code_lines.append(f'# Ввод текста: {var_name}')
+                code_lines.append(f'print(f"DEBUG: Поиск элемента для ввода {var_name}: {selector["by"]}, \\"{selector_str}\\"")')
                 code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.presence_of_element_located(({selector["by"]}, "{selector_str}"))')
                 code_lines.append(')')
                 code_lines.append('element.clear()')
-                code_lines.append(f'element.send_keys("{{{{{var_name}}}}}")')
-                code_lines.append(f'print(f"[OK] Введено: {{{{{var_name}}}}}")')
+                code_lines.append(f'element.send_keys(data_row["{var_name}"])')
+                code_lines.append(f'print(f"[OK] Введено {{data_row[\'{var_name}\']}}")')
                 code_lines.append('time.sleep(random.uniform(1.5, 3))')
                 code_lines.append('')
                 var_index += 1

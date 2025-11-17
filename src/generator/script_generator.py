@@ -752,7 +752,15 @@ def run_automation_iteration(iteration_number, data_row):
         return True
 
     except Exception as e:
-        print(f"Ошибка в итерации #{iteration_number}: {e}")
+        error_msg = str(e)
+        if "invalid session id" in error_msg.lower() or "session deleted" in error_msg.lower():
+            print(f"⚠️ ВНИМАНИЕ: Браузер был закрыт вручную или потерял соединение!")
+            print(f"Итерация #{iteration_number} прервана из-за закрытия браузера")
+        elif "timeout" in error_msg.lower():
+            print(f"⏱️ TIMEOUT: Элемент не найден за 30 секунд в итерации #{iteration_number}")
+            print(f"Возможно страница загружается слишком долго или селектор неверный")
+        else:
+            print(f"Ошибка в итерации #{iteration_number}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -808,10 +816,11 @@ def main():
             else:
                 failed_iterations += 1
 
-            # Пауза между итерациями
+            # Пауза между итерациями (чтобы система успела закрыть предыдущий профиль)
             if i < total_iterations:
-                print("\\nПауза 2 секунды перед следующей итерацией...")
-                time.sleep(2)
+                pause_seconds = 5
+                print(f"\\nПауза {pause_seconds} секунд перед следующей итерацией...")
+                time.sleep(pause_seconds)
 
         # Итоговая статистика
         print(f"\\n{'='*60}")
