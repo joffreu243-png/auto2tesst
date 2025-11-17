@@ -516,13 +516,9 @@ class PlaywrightParser:
         elif var_name == 'lastname':
             surnames = ['Smith', 'Doe', 'Johnson', 'Williams', 'Brown']
             return surnames[index % len(surnames)]
-        elif var_name in ['password', 'date_of_birth', 'phone', 'number']:
-            if original_value.isdigit():
-                try:
-                    num = int(original_value) + index
-                    return str(num)
-                except:
-                    return original_value
+        elif var_name in ['password', 'date_of_birth', 'phone', 'phone_number', 'number', 'otp_code']:
+            # Для номеров и кодов - НЕ изменять оригинальное значение
+            # API сам даст реальные номера/OTP
             return original_value
         else:
             return f'{original_value}_{index}' if original_value else f'value_{index}'
