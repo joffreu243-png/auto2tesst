@@ -553,6 +553,8 @@ Selenium:
                   command=self.connect_sms_provider).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(sms_buttons_frame, text="💰 Баланс",
                   command=self.check_sms_balance).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(sms_buttons_frame, text="📋 Все сервисы",
+                  command=self.show_all_services).pack(side=tk.LEFT, padx=(0, 5))
 
         # Статус подключения
         self.sms_status_label = ttk.Label(self.sms_options_frame, text="✗ Не подключен",
@@ -835,6 +837,167 @@ except Exception as e:
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка:\n{str(e)}")
+
+    def show_all_services(self):
+        """Показать окно со всеми доступными сервисами"""
+        provider = self.sms_provider_manager.get_active_provider()
+
+        if not provider:
+            messagebox.showwarning(
+                "Предупреждение",
+                "Сначала подключитесь к SMS провайдеру"
+            )
+            return
+
+        # Создать новое окно
+        services_window = tk.Toplevel(self.root)
+        services_window.title("Все доступные сервисы DaisySMS")
+        services_window.geometry("900x600")
+
+        # Фрейм для поиска
+        search_frame = ttk.Frame(services_window, padding=10)
+        search_frame.pack(fill=tk.X)
+
+        ttk.Label(search_frame, text="Поиск:").pack(side=tk.LEFT, padx=(0, 5))
+        search_var = tk.StringVar()
+        search_entry = ttk.Entry(search_frame, textvariable=search_var, width=40)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+
+        # Статус загрузки
+        status_label = ttk.Label(search_frame, text="Загрузка...", foreground="blue")
+        status_label.pack(side=tk.LEFT)
+
+        # Фрейм для таблицы
+        table_frame = ttk.Frame(services_window, padding=10)
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Создать Treeview для отображения таблицы
+        columns = ("code", "name", "country", "price", "count")
+        tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=20)
+
+        # Настроить колонки
+        tree.heading("code", text="Код сервиса")
+        tree.heading("name", text="Название")
+        tree.heading("country", text="Страна")
+        tree.heading("price", text="Цена ($)")
+        tree.heading("count", text="Доступно номеров")
+
+        tree.column("code", width=100, anchor=tk.W)
+        tree.column("name", width=250, anchor=tk.W)
+        tree.column("country", width=80, anchor=tk.CENTER)
+        tree.column("price", width=100, anchor=tk.E)
+        tree.column("count", width=150, anchor=tk.CENTER)
+
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Кнопка для выбора сервиса
+        button_frame = ttk.Frame(services_window, padding=10)
+        button_frame.pack(fill=tk.X)
+
+        def select_service():
+            """Выбрать выделенный сервис"""
+            selection = tree.selection()
+            if selection:
+                item = tree.item(selection[0])
+                service_code = item['values'][0]
+                self.sms_service_var.set(service_code)
+                messagebox.showinfo("Успех", f"Выбран сервис: {service_code}")
+                services_window.destroy()
+            else:
+                messagebox.showwarning("Предупреждение", "Выберите сервис из списка")
+
+        ttk.Button(button_frame, text="Выбрать выделенный сервис",
+                  command=select_service).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(button_frame, text="Закрыть",
+                  command=services_window.destroy).pack(side=tk.LEFT)
+
+        # Информация о сортировке
+        ttk.Label(button_frame, text="💡 Нажмите на заголовок колонки для сортировки",
+                 foreground="blue", font=("TkDefaultFont", 8)).pack(side=tk.RIGHT)
+
+        # Функция для загрузки и отображения сервисов
+        all_services = []
+
+        def load_services():
+            """Загрузить сервисы из API"""
+            nonlocal all_services
+            try:
+                status_label.config(text="Загрузка сервисов из API...", foreground="blue")
+                services_window.update()
+
+                result = provider.get_all_services_with_prices()
+
+                if result['success']:
+                    all_services = result['services']
+                    total = result.get('total_services', len(all_services))
+                    status_label.config(
+                        text=f"Загружено {total} сервисов",
+                        foreground="green"
+                    )
+                    update_table()
+                else:
+                    error = result.get('error', 'Неизвестная ошибка')
+                    status_label.config(text=f"Ошибка: {error}", foreground="red")
+                    messagebox.showerror("Ошибка", f"Не удалось загрузить сервисы:\n{error}")
+
+            except Exception as e:
+                status_label.config(text=f"Ошибка: {str(e)}", foreground="red")
+                messagebox.showerror("Ошибка", f"Ошибка загрузки:\n{str(e)}")
+
+        def update_table(services=None):
+            """Обновить таблицу с фильтрацией"""
+            # Очистить таблицу
+            for item in tree.get_children():
+                tree.delete(item)
+
+            # Если сервисы не переданы, используем все
+            if services is None:
+                services = all_services
+
+            # Применить фильтр поиска
+            search_text = search_var.get().lower()
+            if search_text:
+                services = [
+                    s for s in services
+                    if search_text in s['name'].lower() or
+                       search_text in s['code'].lower() or
+                       search_text in s['country'].lower()
+                ]
+
+            # Добавить данные в таблицу
+            for service in services:
+                tree.insert("", tk.END, values=(
+                    service['code'],
+                    service['name'],
+                    service['country'],
+                    f"${service['price']:.2f}",
+                    service['count'] if service['count'] > 0 else "Нет в наличии"
+                ))
+
+            # Обновить статус
+            if search_text:
+                status_label.config(
+                    text=f"Показано {len(services)} из {len(all_services)} сервисов",
+                    foreground="blue"
+                )
+            else:
+                status_label.config(
+                    text=f"Загружено {len(all_services)} сервисов",
+                    foreground="green"
+                )
+
+        # Привязать поиск к обновлению таблицы
+        search_var.trace('w', lambda *args: update_table())
+
+        # Загрузить сервисы в отдельном потоке (чтобы GUI не зависало)
+        import threading
+        thread = threading.Thread(target=load_services, daemon=True)
+        thread.start()
 
     def select_csv_file(self):
         """Выбор CSV файла"""

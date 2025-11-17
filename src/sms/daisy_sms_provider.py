@@ -322,3 +322,70 @@ class DaisySMSProvider(BaseSMSProvider):
                 'success': False,
                 'error': response
             }
+
+    def get_all_services_with_prices(self) -> Dict:
+        """
+        Получить полный список всех доступных сервисов с ценами
+
+        API endpoint: getPricesVerification
+        Возвращает: service => country => data
+
+        Returns:
+            Dict: {
+                'success': bool,
+                'services': List[Dict],  # [{'code': 'ds', 'name': 'Discord', 'price': 0.5, 'country': 'USA'}, ...]
+                'raw_data': Dict,  # Исходные данные от API
+                'error': Optional[str]
+            }
+        """
+        try:
+            response = self._make_request('getPricesVerification')
+
+            # Попробуем распарсить JSON
+            import json
+            try:
+                data = json.loads(response)
+            except (json.JSONDecodeError, ValueError):
+                # Если не JSON, вернем ошибку
+                return {
+                    'success': False,
+                    'services': [],
+                    'raw_data': {},
+                    'error': f'Invalid response format: {response[:100]}'
+                }
+
+            # Парсим структуру service => country => data
+            services_list = []
+
+            for service_code, countries_data in data.items():
+                if isinstance(countries_data, dict):
+                    for country_code, service_info in countries_data.items():
+                        if isinstance(service_info, dict):
+                            # Извлекаем данные о сервисе
+                            service_entry = {
+                                'code': service_code,
+                                'country': country_code,
+                                'name': service_info.get('name', service_code.upper()),
+                                'price': float(service_info.get('price', 0)),
+                                'count': service_info.get('count', 0)  # Количество доступных номеров
+                            }
+                            services_list.append(service_entry)
+
+            # Сортируем по имени
+            services_list.sort(key=lambda x: x['name'].lower())
+
+            return {
+                'success': True,
+                'services': services_list,
+                'raw_data': data,
+                'error': None,
+                'total_services': len(services_list)
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'services': [],
+                'raw_data': {},
+                'error': str(e)
+            }
