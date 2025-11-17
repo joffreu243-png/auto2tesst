@@ -406,27 +406,9 @@ def load_data_from_csv(filename: str) -> List[Dict]:
                 # Продолжаем выполнение - возможно номер не нужен
 '''
 
-        # Добавить OTP блок в user_code если используется SMS
+        # OTP получение теперь встроено в пользовательский код (в парсере)
+        # Парсер автоматически вставляет получение OTP перед заполнением OTP поля
         otp_helper = ''
-        if use_sms:
-            otp_helper = '''
-            # ============================================================
-            # ХЕЛПЕР ДЛЯ ПОЛУЧЕНИЯ OTP
-            # ============================================================
-            # Получить OTP код из SMS если есть активация
-            if USE_SMS_PROVIDER and sms_activation_id:
-                print("[SMS] Ожидание OTP кода...")
-                otp_code = get_sms_code(sms_activation_id, timeout=180)
-                if otp_code:
-                    data_row['otp_code'] = otp_code  # ПЕРЕЗАПИСАТЬ значение из CSV
-                    print(f"[SMS] [OK] OTP получен и добавлен в data_row: {otp_code}")
-                else:
-                    print("[SMS ERROR] Не удалось получить OTP код")
-                    # Оставить значение из CSV или пустую строку
-                    if 'otp_code' not in data_row:
-                        data_row['otp_code'] = ""
-
-'''
 
         # ВСЕГДА используем Octobrowser (CDP режим)
         # Target влияет только на парсинг импортированного скрипта, но не на выполнение

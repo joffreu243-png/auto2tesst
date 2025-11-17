@@ -375,6 +375,20 @@ class PlaywrightParser:
                 # Экранировать кавычки для использования в f-строке
                 selector_code_escaped = selector_code.replace('"', '\\"')
                 var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
+                field_type = self.field_types[var_index] if var_index < len(self.field_types) else 'unknown'
+
+                # Если это OTP поле - добавить получение кода ПЕРЕД заполнением
+                if field_type == 'otp' and var_name.startswith('otp'):
+                    code_lines.append(f'# Получение OTP кода (ТОЛЬКО если используется SMS Provider)')
+                    code_lines.append(f'if USE_SMS_PROVIDER and sms_activation_id:')
+                    code_lines.append(f'    print("[SMS] Ожидание OTP кода...")')
+                    code_lines.append(f'    otp_code = get_sms_code(sms_activation_id, timeout=180)')
+                    code_lines.append(f'    if otp_code:')
+                    code_lines.append(f'        data_row["{var_name}"] = otp_code  # Перезаписать значение из CSV')
+                    code_lines.append(f'        print(f"[SMS] [OK] OTP получен: {{otp_code}}")')
+                    code_lines.append(f'    else:')
+                    code_lines.append(f'        print("[SMS ERROR] Не удалось получить OTP код")')
+                    code_lines.append('')
 
                 code_lines.append(f'# Ввод текста: {var_name}')
                 code_lines.append(f'print(f"DEBUG: Заполнение поля {var_name}: {selector_code_escaped}")')
