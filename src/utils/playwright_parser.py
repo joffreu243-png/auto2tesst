@@ -504,8 +504,9 @@ class PlaywrightParser:
             chain = selector['chain']
             modifier = selector.get('modifier')
 
-            # Нормализовать кавычки - заменить одинарные на двойные для консистентности
-            chain = chain.replace("'", '"')
+            # НЕ нормализуем кавычки - оставляем как есть из оригинала
+            # Playwright recorder уже создал корректный Python код
+            # Замена кавычек ломает апострофы (You're, Let's и т.д.)
 
             # Построить полный селектор
             result = chain
