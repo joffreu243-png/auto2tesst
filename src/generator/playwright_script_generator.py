@@ -285,17 +285,17 @@ def get_phone_number_with_retry(max_retries=5) -> Optional[Dict]:
         sms_data = get_phone_number()
 
         if sms_data:
-            print(f"[SMS RETRY] ✓ УСПЕХ на попытке {attempt}!")
+            print(f"[SMS RETRY] [SUCCESS] УСПЕХ на попытке {attempt}!")
             return sms_data
 
         # Если не последняя попытка - ждем перед повтором
         if attempt < max_retries:
             # Экспоненциальная задержка: 2, 4, 8, 16, 32 секунды
             wait_time = 2 ** attempt
-            print(f"[SMS RETRY] ⏳ Ожидание {wait_time} секунд перед следующей попыткой...")
+            print(f"[SMS RETRY] [WAIT] Ожидание {wait_time} секунд перед следующей попыткой...")
             time.sleep(wait_time)
 
-    print(f"[SMS RETRY] ✗ ПРОВАЛ: Не удалось получить номер после {max_retries} попыток")
+    print(f"[SMS RETRY] [FAIL] ПРОВАЛ: Не удалось получить номер после {max_retries} попыток")
     return None
 
 
