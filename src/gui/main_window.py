@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.api.octobrowser_api import OctobrowserAPI
 from src.generator.script_generator import ScriptGenerator
+from src.generator.playwright_script_generator import PlaywrightScriptGenerator
 from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
@@ -33,7 +34,8 @@ class OctobrowserScriptBuilder:
 
         # Инициализация компонентов
         self.api = None
-        self.generator = ScriptGenerator()
+        self.generator = ScriptGenerator()  # Selenium генератор
+        self.playwright_generator = PlaywrightScriptGenerator()  # Playwright генератор
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_output)
         self.parser = ScriptParser()
@@ -270,6 +272,36 @@ class OctobrowserScriptBuilder:
         ttk.Radiobutton(os_frame, text="Windows", variable=self.os_type_var, value="win").pack(side=tk.LEFT)
         ttk.Radiobutton(os_frame, text="macOS", variable=self.os_type_var, value="mac").pack(side=tk.LEFT)
         ttk.Radiobutton(os_frame, text="Linux", variable=self.os_type_var, value="linux").pack(side=tk.LEFT)
+
+        # === ФРЕЙМВОРК АВТОМАТИЗАЦИИ ===
+        framework_frame = ttk.LabelFrame(scrollable_frame, text="🎭 Фреймворк автоматизации", padding=10)
+        framework_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(framework_frame, text="Выберите фреймворк:").pack(anchor=tk.W, pady=(0, 5))
+        self.automation_framework_var = tk.StringVar(value="playwright")
+
+        framework_options_frame = ttk.Frame(framework_frame)
+        framework_options_frame.pack(fill=tk.X, padx=10)
+
+        ttk.Radiobutton(framework_options_frame, text="🎭 Playwright (рекомендуется)",
+                       variable=self.automation_framework_var, value="playwright").pack(anchor=tk.W)
+        ttk.Radiobutton(framework_options_frame, text="🔧 Selenium",
+                       variable=self.automation_framework_var, value="selenium").pack(anchor=tk.W)
+
+        # Описание
+        info_text = """
+Playwright:
+• Автоматические ожидания элементов
+• Стабильнее работает
+• Надёжные селекторы (role, testId)
+
+Selenium:
+• Классический подход
+• Ручные ожидания WebDriverWait
+• XPath, CSS селекторы
+        """
+        ttk.Label(framework_frame, text=info_text.strip(), justify=tk.LEFT,
+                 foreground="gray", font=("TkDefaultFont", 8)).pack(anchor=tk.W, padx=10, pady=5)
 
         # === PROXY ===
         proxy_frame = ttk.LabelFrame(scrollable_frame, text="🌐 Прокси", padding=10)
@@ -826,10 +858,13 @@ except Exception as e:
             options = self.collect_options()
             user_code = self.code_editor.get("1.0", tk.END).strip()
 
-            # Валидация пользовательского кода (базовая проверка синтаксиса Python)
-            if user_code:
+            # Определить выбранный фреймворк
+            framework = self.automation_framework_var.get()
+
+            # Валидация пользовательского кода (только для Selenium)
+            if user_code and framework == 'selenium':
                 try:
-                    # Пытаемся скомпилировать код как Python
+                    # Пытаемся скомпилировать код как Python (только для синхронного кода)
                     compile(user_code, '<user_code>', 'exec')
                 except SyntaxError as e:
                     error_msg = f"Ошибка синтаксиса в вашем коде автоматизации:\n\n"
@@ -839,8 +874,19 @@ except Exception as e:
                     messagebox.showerror("Синтаксическая ошибка", error_msg)
                     return
 
-            # Генерация
-            script_content = self.generator.generate_script(options, user_code)
+            # Генерация с правильным генератором
+            if framework == 'playwright':
+                # Для Playwright адаптируем опции
+                playwright_config = {
+                    'api_token': options.get('api_token', ''),
+                    'use_proxy': 'proxy' in options.get('profile_config', {}),
+                    'proxy': options.get('profile_config', {}).get('proxy', {}),
+                    'csv_filename': Path(options.get('data_file_path', 'data.csv')).name if options.get('data_file_path') else 'data.csv'
+                }
+                script_content = self.playwright_generator.generate_script(user_code, playwright_config)
+            else:
+                # Для Selenium используем стандартный генератор
+                script_content = self.generator.generate_script(options, user_code)
 
             # Сохранение
             output_dir = Path(__file__).parent.parent.parent / 'generated_scripts'
