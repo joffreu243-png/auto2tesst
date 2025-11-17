@@ -105,10 +105,11 @@ class PlaywrightParser:
             if '.fill(' in line:
                 selector = self._extract_playwright_selector(line)
                 value_match = re.search(r"\.fill\(['\"](.+?)['\"]\)", line)
-                if selector and value_match:
+                if value_match:
+                    # Даже если селектор не распознан, сохраняем действие
                     actions.append({
                         'type': 'fill',
-                        'selector': selector,
+                        'selector': selector or {'type': 'unknown', 'original': line},
                         'value': value_match.group(1),
                         'line': i
                     })
@@ -118,10 +119,11 @@ class PlaywrightParser:
             if '.type(' in line:
                 selector = self._extract_playwright_selector(line)
                 value_match = re.search(r"\.type\(['\"](.+?)['\"]\)", line)
-                if selector and value_match:
+                if value_match:
+                    # Даже если селектор не распознан, сохраняем действие
                     actions.append({
                         'type': 'fill',  # Используем fill вместо type
-                        'selector': selector,
+                        'selector': selector or {'type': 'unknown', 'original': line},
                         'value': value_match.group(1),
                         'line': i
                     })
