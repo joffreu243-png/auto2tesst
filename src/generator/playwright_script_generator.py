@@ -518,8 +518,8 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
     page = None
 
     print("\\n" + "="*60)
-    print(f"Итерация #{{iteration_number}}")
-    print(f"Данные: {{data_row}}")
+    print(f"Итерация #{iteration_number}")
+    print(f"Данные: {data_row}")
     print("="*60 + "\\n")
 
     try:{sms_block}{browser_launch_code}
@@ -528,12 +528,12 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
         error_msg = str(e)
         if "target closed" in error_msg.lower() or "browser has been closed" in error_msg.lower():
             print(f"[!] ВНИМАНИЕ: Браузер был закрыт вручную!")
-            print(f"Итерация #{{iteration_number}} прервана")
+            print(f"Итерация #{iteration_number} прервана")
         elif "timeout" in error_msg.lower():
-            print(f"[TIMEOUT] Элемент не найден в итерации #{{iteration_number}}")
+            print(f"[TIMEOUT] Элемент не найден в итерации #{iteration_number}")
             print(f"Возможно страница загружается слишком долго")
         else:
-            print(f"[ERROR] Ошибка в итерации #{{iteration_number}}: {{e}}")
+            print(f"[ERROR] Ошибка в итерации #{iteration_number}: {e}")
 
         import traceback
         traceback.print_exc()
@@ -579,7 +579,7 @@ async def main():
         successful_iterations = 0
         failed_iterations = 0
 
-        print(f"\\nЗапуск автоматизации для {{total_iterations}} строк данных\\n")
+        print(f"\\nЗапуск автоматизации для {total_iterations} строк данных\\n")
 
         # Запуск для каждой строки
         for i, data_row in enumerate(data_rows, start=1):
@@ -593,21 +593,21 @@ async def main():
             # Пауза между итерациями
             if i < total_iterations:
                 pause_seconds = 5
-                print(f"\\nПауза {{pause_seconds}} секунд перед следующей итерацией...")
+                print(f"\\nПауза {pause_seconds} секунд перед следующей итерацией...")
                 await asyncio.sleep(pause_seconds)
 
         # Итоговая статистика
         print("\\n" + "="*60)
         print("ИТОГО:")
-        print(f"Всего итераций: {{total_iterations}}")
-        print(f"Успешных: {{successful_iterations}}")
-        print(f"С ошибками: {{failed_iterations}}")
+        print(f"Всего итераций: {total_iterations}")
+        print(f"Успешных: {successful_iterations}")
+        print(f"С ошибками: {failed_iterations}")
         print("="*60)
 
     except KeyboardInterrupt:
         print("\\n[ПРЕРВАНО] Выполнение остановлено пользователем")
     except Exception as e:
-        print(f"\\n[ERROR] Критическая ошибка: {{e}}")
+        print(f"\\n[ERROR] Критическая ошибка: {e}")
         import traceback
         traceback.print_exc()
 
