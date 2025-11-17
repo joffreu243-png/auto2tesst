@@ -345,15 +345,27 @@ class PlaywrightParser:
         # Добавить переход на страницу (если есть)
         if url:
             code_lines.append(f'# Переход на страницу')
-            code_lines.append(f'await page.goto("{url}")')
-            code_lines.append('await page.wait_for_load_state("load")  # Ждем загрузки DOM')
+            code_lines.append(f'try:')
+            code_lines.append(f'    # Используем domcontentloaded вместо load - быстрее и надежнее')
+            code_lines.append(f'    await page.goto("{url}", wait_until="domcontentloaded", timeout=60000)')
+            code_lines.append(f'    print("[OK] Страница загружена: {url}")')
+            code_lines.append(f'    await page.wait_for_timeout(2000)  # Доп. пауза для загрузки JS')
+            code_lines.append(f'except Exception as e:')
+            code_lines.append(f'    print(f"[WARNING] Проблема при загрузке страницы: {{e}}")')
+            code_lines.append(f'    print("[INFO] Продолжаем работу...")')
             code_lines.append('')
 
         for action in actions:
             if action['type'] == 'goto':
                 code_lines.append(f'# Переход на страницу')
-                code_lines.append(f'await page.goto("{action["url"]}")')
-                code_lines.append('await page.wait_for_load_state("load")  # Ждем загрузки DOM')
+                code_lines.append(f'try:')
+                code_lines.append(f'    # Используем domcontentloaded вместо load - быстрее и надежнее')
+                code_lines.append(f'    await page.goto("{action["url"]}", wait_until="domcontentloaded", timeout=60000)')
+                code_lines.append(f'    print("[OK] Страница загружена: {action["url"]}")')
+                code_lines.append(f'    await page.wait_for_timeout(2000)  # Доп. пауза для загрузки JS')
+                code_lines.append(f'except Exception as e:')
+                code_lines.append(f'    print(f"[WARNING] Проблема при загрузке страницы: {{e}}")')
+                code_lines.append(f'    print("[INFO] Продолжаем работу...")')
                 code_lines.append('')
 
             elif action['type'] == 'click':
