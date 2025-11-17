@@ -127,19 +127,19 @@ def create_profile() -> Optional[str]:
 
     profile_data = {
         "title": f"AutoProfile_{int(time.time())}",
-        "fingerprint": {{"os": "win"}}  # ОБЯЗАТЕЛЬНОЕ ПОЛЕ для создания профиля
+        "fingerprint": {"os": "win"}  # ОБЯЗАТЕЛЬНОЕ ПОЛЕ для создания профиля
     }
 
     # Добавить прокси если включено
     if USE_PROXY:
-        profile_data["proxy"] = {{
+        profile_data["proxy"] = {
             "type": PROXY_TYPE,
             "host": PROXY_HOST,
             "port": PROXY_PORT,
             "login": PROXY_LOGIN,
             "password": PROXY_PASSWORD
-        }}
-        print(f"[PROXY] Установлен прокси: {{PROXY_TYPE}}://{{PROXY_HOST}}:{{PROXY_PORT}}")
+        }
+        print(f"[PROXY] Установлен прокси: {PROXY_TYPE}://{PROXY_HOST}:{PROXY_PORT}")
 
     try:
         response = requests.post(url, headers=headers, json=profile_data)
