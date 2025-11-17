@@ -121,24 +121,25 @@ SMS_API_BASE_URL = "https://daisysms.com/stubs/handler_api.php"
 # ============================================================
 
 def create_profile() -> Optional[str]:
-    """Создание профиля через локальный Octobrowser API"""
-    url = f"{LOCAL_API_URL}/profiles"
-    headers = {}
+    """Создание профиля через Octobrowser API"""
+    url = f"{API_BASE_URL}/profiles"
+    headers = {"X-Octo-Api-Token": API_TOKEN}
 
     profile_data = {
         "title": f"AutoProfile_{int(time.time())}",
+        "fingerprint": {{"os": "win"}}  # ОБЯЗАТЕЛЬНОЕ ПОЛЕ для создания профиля
     }
 
     # Добавить прокси если включено
     if USE_PROXY:
-        profile_data["proxy"] = {
+        profile_data["proxy"] = {{
             "type": PROXY_TYPE,
             "host": PROXY_HOST,
             "port": PROXY_PORT,
             "login": PROXY_LOGIN,
             "password": PROXY_PASSWORD
-        }
-        print(f"[PROXY] Установлен прокси: {PROXY_TYPE}://{PROXY_HOST}:{PROXY_PORT}")
+        }}
+        print(f"[PROXY] Установлен прокси: {{PROXY_TYPE}}://{{PROXY_HOST}}:{{PROXY_PORT}}")
 
     try:
         response = requests.post(url, headers=headers, json=profile_data)
