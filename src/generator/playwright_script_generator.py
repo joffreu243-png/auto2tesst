@@ -283,7 +283,7 @@ def get_sms_code(activation_id: str, timeout: int = 180) -> Optional[str]:
             # STATUS_OK:CODE - SMS получено
             if result.startswith('STATUS_OK:'):
                 code = result.split(':')[1]
-                print(f"[SMS] ✓ Получен OTP код: {code}")
+                print(f"[SMS] [OK] Получен OTP код: {code}")
                 return code
 
             # STATUS_WAIT_CODE - ожидание
@@ -400,7 +400,7 @@ def load_data_from_csv(filename: str) -> List[Dict]:
 
                 # Добавить номер в данные
                 data_row['phone_number'] = phone_number
-                print(f"[SMS] ✓ Номер добавлен в data_row: {phone_number}")
+                print(f"[SMS] [OK] Номер добавлен в data_row: {phone_number}")
             else:
                 print("[SMS ERROR] Не удалось получить номер")
                 # Продолжаем выполнение - возможно номер не нужен
@@ -420,7 +420,7 @@ def load_data_from_csv(filename: str) -> List[Dict]:
                     otp_code = get_sms_code(sms_activation_id, timeout=180)
                     if otp_code:
                         data_row['otp_code'] = otp_code
-                        print(f"[SMS] ✓ OTP добавлен в data_row: {otp_code}")
+                        print(f"[SMS] [OK] OTP добавлен в data_row: {otp_code}")
                     else:
                         print("[SMS ERROR] Не удалось получить OTP")
                         data_row['otp_code'] = ""
@@ -517,20 +517,20 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
     context = None
     page = None
 
-    print(f"\\n{{'='*60}}")
+    print("\\n" + "="*60)
     print(f"Итерация #{{iteration_number}}")
     print(f"Данные: {{data_row}}")
-    print(f"{{'='*60}}\\n")
+    print("="*60 + "\\n")
 
     try:{sms_block}{browser_launch_code}
 
     except Exception as e:
         error_msg = str(e)
         if "target closed" in error_msg.lower() or "browser has been closed" in error_msg.lower():
-            print(f"⚠️ ВНИМАНИЕ: Браузер был закрыт вручную!")
+            print(f"[!] ВНИМАНИЕ: Браузер был закрыт вручную!")
             print(f"Итерация #{{iteration_number}} прервана")
         elif "timeout" in error_msg.lower():
-            print(f"⏱️ TIMEOUT: Элемент не найден в итерации #{{iteration_number}}")
+            print(f"[TIMEOUT] Элемент не найден в итерации #{{iteration_number}}")
             print(f"Возможно страница загружается слишком долго")
         else:
             print(f"[ERROR] Ошибка в итерации #{{iteration_number}}: {{e}}")
@@ -597,12 +597,12 @@ async def main():
                 await asyncio.sleep(pause_seconds)
 
         # Итоговая статистика
-        print(f"\\n{{'='*60}}")
-        print(f"ИТОГО:")
+        print("\\n" + "="*60)
+        print("ИТОГО:")
         print(f"Всего итераций: {{total_iterations}}")
         print(f"Успешных: {{successful_iterations}}")
         print(f"С ошибками: {{failed_iterations}}")
-        print(f"{{'='*60}}")
+        print("="*60)
 
     except KeyboardInterrupt:
         print("\\n[ПРЕРВАНО] Выполнение остановлено пользователем")
