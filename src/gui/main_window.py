@@ -936,6 +936,20 @@ except Exception as e:
             info_msg += f"Действий: {len(self.imported_data['actions'])}\n"
             info_msg += f"Извлечено значений: {len(self.imported_data['values'])}\n\n"
 
+            # Добавить список действий с селекторами
+            info_msg += "СПИСОК ДЕЙСТВИЙ И СЕЛЕКТОРОВ:\n"
+            info_msg += "=" * 50 + "\n"
+            for i, action in enumerate(self.imported_data['actions'], 1):
+                action_type = action['type'].upper()
+                if action['type'] == 'open':
+                    info_msg += f"{i}. {action_type}: {action['url']}\n"
+                elif 'selector' in action:
+                    sel = action['selector']
+                    info_msg += f"{i}. {action_type}: {sel['by']}, \"{sel['selector']}\"\n"
+                else:
+                    info_msg += f"{i}. {action_type}\n"
+            info_msg += "=" * 50 + "\n\n"
+
             if self.imported_data['values']:
                 info_msg += f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n\n"
                 info_msg += "Переходим к редактированию данных..."

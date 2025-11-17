@@ -316,6 +316,7 @@ class SeleniumIDEParser:
                 selector_str = selector['selector'].replace('"', '\\"')
 
                 code_lines.append('# Клик по элементу')
+                code_lines.append(f'print(f"DEBUG: Поиск элемента для клика: {selector["by"]}, \\"{selector_str}\\"")')
                 code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.element_to_be_clickable(({selector["by"]}, "{selector_str}"))')
                 code_lines.append(')')
@@ -330,6 +331,7 @@ class SeleniumIDEParser:
                 var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
 
                 code_lines.append(f'# Ввод текста: {{{{{var_name}}}}}')
+                code_lines.append(f'print(f"DEBUG: Поиск элемента для ввода {{{{{var_name}}}}}: {selector["by"]}, \\"{selector_str}\\"")')
                 code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.presence_of_element_located(({selector["by"]}, "{selector_str}"))')
                 code_lines.append(')')
@@ -345,6 +347,7 @@ class SeleniumIDEParser:
                 selector_str = selector['selector'].replace('"', '\\"')
 
                 code_lines.append('# Отправка формы')
+                code_lines.append(f'print(f"DEBUG: Поиск формы для отправки: {selector["by"]}, \\"{selector_str}\\"")')
                 code_lines.append('element = WebDriverWait(driver, 30).until(')
                 code_lines.append(f'    EC.presence_of_element_located(({selector["by"]}, "{selector_str}"))')
                 code_lines.append(')')
