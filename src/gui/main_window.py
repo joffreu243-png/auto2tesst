@@ -290,11 +290,43 @@ class OctobrowserScriptBuilder:
         framework_options_frame.pack(fill=tk.X, padx=10)
 
         ttk.Radiobutton(framework_options_frame, text="🎭 Playwright (рекомендуется)",
-                       variable=self.automation_framework_var, value="playwright").pack(anchor=tk.W)
+                       variable=self.automation_framework_var, value="playwright",
+                       command=self.toggle_playwright_target).pack(anchor=tk.W)
         ttk.Radiobutton(framework_options_frame, text="🔧 Selenium",
-                       variable=self.automation_framework_var, value="selenium").pack(anchor=tk.W)
+                       variable=self.automation_framework_var, value="selenium",
+                       command=self.toggle_playwright_target).pack(anchor=tk.W)
 
-        # Описание
+        # Playwright Target (Library vs CDP)
+        self.playwright_target_frame = ttk.Frame(framework_frame)
+        self.playwright_target_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        ttk.Label(self.playwright_target_frame, text="Playwright режим:", font=("TkDefaultFont", 9, "bold")).pack(anchor=tk.W)
+
+        self.playwright_target_var = tk.StringVar(value="library")
+
+        target_options = ttk.Frame(self.playwright_target_frame)
+        target_options.pack(fill=tk.X, padx=10, pady=(5, 0))
+
+        ttk.Radiobutton(target_options, text="📚 Library (прямой запуск браузера)",
+                       variable=self.playwright_target_var, value="library").pack(anchor=tk.W)
+        ttk.Radiobutton(target_options, text="🔌 CDP (подключение к Octobrowser)",
+                       variable=self.playwright_target_var, value="cdp").pack(anchor=tk.W)
+
+        target_info = """
+Library: Playwright запускает свой браузер напрямую
+• Быстрее и проще
+• Не требует Octobrowser
+• Подходит для большинства задач
+
+CDP: Подключение к запущенному Octobrowser
+• Использует профили Octobrowser
+• Нужен запущенный Octobrowser
+• Для работы с fingerprints и прокси
+        """
+        ttk.Label(self.playwright_target_frame, text=target_info.strip(), justify=tk.LEFT,
+                 foreground="blue", font=("TkDefaultFont", 7)).pack(anchor=tk.W, padx=10, pady=(5, 0))
+
+        # Описание фреймворков
         info_text = """
 Playwright:
 • Автоматические ожидания элементов
@@ -546,6 +578,9 @@ Selenium:
 
         self.toggle_sms_options()
 
+        # Инициализировать видимость Playwright таргета
+        self.toggle_playwright_target()
+
     def create_right_panel(self, parent):
         """Создание правой панели с кодом"""
         # Верхняя часть - редактор кода
@@ -699,6 +734,15 @@ except Exception as e:
                             subchild.configure(state=state)
             except:
                 pass
+
+    def toggle_playwright_target(self):
+        """Показать/скрыть опции таргета Playwright"""
+        if self.automation_framework_var.get() == "playwright":
+            # Показать опции таргета
+            self.playwright_target_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        else:
+            # Скрыть опции таргета для Selenium
+            self.playwright_target_frame.pack_forget()
 
     def connect_sms_provider(self):
         """Подключение к SMS провайдеру"""
@@ -1069,7 +1113,8 @@ except Exception as e:
                         'provider': self.sms_provider_var.get(),
                         'api_key': self.sms_api_key_entry.get().strip(),
                         'service': self.sms_service_var.get()
-                    }
+                    },
+                    'target': self.playwright_target_var.get()  # library или cdp
                 }
                 script_content = self.playwright_generator.generate_script(user_code, playwright_config)
             else:

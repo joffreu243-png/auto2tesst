@@ -15,7 +15,7 @@ class PlaywrightScriptGenerator:
 
         Args:
             user_code: Пользовательский код автоматизации
-            config: Конфигурация (API token, proxy, sms, etc.)
+            config: Конфигурация (API token, proxy, sms, target, etc.)
 
         Returns:
             Полный исполняемый Python скрипт
@@ -27,18 +27,22 @@ class PlaywrightScriptGenerator:
         csv_filename = config.get('csv_filename', 'data.csv')
         use_sms = config.get('use_sms', False)
         sms_config = config.get('sms', {})
+        target = config.get('target', 'library')  # library или cdp
 
         # Генерация скрипта
         script = self._generate_imports()
-        script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, use_sms, sms_config)
-        script += self._generate_octobrowser_functions()
+        script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, use_sms, sms_config, target)
+
+        # Добавить функции Octobrowser только для CDP режима
+        if target == 'cdp':
+            script += self._generate_octobrowser_functions()
 
         # Добавить SMS функции если включено
         if use_sms:
             script += self._generate_sms_functions(sms_config)
 
         script += self._generate_csv_loader(use_sms)
-        script += self._generate_main_iteration(user_code, use_sms)
+        script += self._generate_main_iteration(user_code, use_sms, target)
         script += self._generate_main_function()
 
         return script
@@ -62,13 +66,16 @@ from typing import Dict, List, Optional
 '''
 
     def _generate_config(self, api_token: str, proxy_config: Dict, use_proxy: bool,
-                         csv_filename: str, use_sms: bool, sms_config: Dict) -> str:
+                         csv_filename: str, use_sms: bool, sms_config: Dict, target: str) -> str:
         """Генерирует конфигурацию"""
         config = f'''# ============================================================
 # КОНФИГУРАЦИЯ
 # ============================================================
 
-# Octobrowser API
+# Playwright режим
+PLAYWRIGHT_TARGET = "{target}"  # library (прямой запуск) или cdp (подключение к Octobrowser)
+
+# Octobrowser API (только для CDP режима)
 API_BASE_URL = "https://app.octobrowser.net/api/v2/automation"
 API_TOKEN = "{api_token}"
 LOCAL_API_URL = "http://localhost:58888/api"
@@ -366,7 +373,7 @@ def load_data_from_csv(filename: str) -> List[Dict]:
 
 '''
 
-    def _generate_main_iteration(self, user_code: str, use_sms: bool = False) -> str:
+    def _generate_main_iteration(self, user_code: str, use_sms: bool = False, target: str = 'library') -> str:
         """Генерирует главную функцию итерации"""
         # Отступ для user_code (12 пробелов - внутри async with блока)
         indented_code = '\n'.join(' ' * 12 + line if line.strip() else ''
@@ -420,29 +427,31 @@ def load_data_from_csv(filename: str) -> List[Dict]:
 
 '''
 
-        return f'''# ============================================================
-# ГЛАВНАЯ ФУНКЦИЯ ИТЕРАЦИИ
-# ============================================================
+        # Генерируем разный код в зависимости от таргета
+        if target == 'library':
+            # Library режим - прямой запуск браузера
+            browser_launch_code = f'''
+        # Запуск браузера через Playwright (library режим)
+        async with async_playwright() as p:
+            print("[LIBRARY MODE] Запуск браузера через Playwright...")
+            browser = await p.chromium.launch(headless=False)
+            context = await browser.new_context()
+            page = await context.new_page()
+            print("[OK] Браузер запущен и готов к автоматизации")
+{otp_helper}
+            # ============================================================
+            # ПОЛЬЗОВАТЕЛЬСКИЙ КОД АВТОМАТИЗАЦИИ
+            # ============================================================
 
-async def run_automation_iteration(iteration_number: int, data_row: Dict):
-    """
-    Запуск одной итерации автоматизации с Playwright
+{indented_code}
 
-    Args:
-        iteration_number: Номер итерации
-        data_row: Данные из CSV для этой итерации
-    """
-    profile_uuid = None
-    browser = None
-    context = None
-    page = None
+            # ============================================================
 
-    print(f"\\n{{'='*60}}")
-    print(f"Итерация #{{iteration_number}}")
-    print(f"Данные: {{data_row}}")
-    print(f"{{'='*60}}\\n")
-
-    try:{sms_block}
+            print(f"[OK] Итерация #{{iteration_number}} успешно завершена")
+            return True'''
+        else:
+            # CDP режим - подключение к Octobrowser
+            browser_launch_code = f'''
         # Создать профиль
         profile_uuid = create_profile()
         if not profile_uuid:
@@ -458,7 +467,7 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
         # Подключиться к браузеру через CDP
         async with async_playwright() as p:
             cdp_url = f"http://127.0.0.1:{{debug_port}}"
-            print(f"Подключение к Octobrowser через CDP: {{cdp_url}}")
+            print(f"[CDP MODE] Подключение к Octobrowser через CDP: {{cdp_url}}")
 
             try:
                 browser = await p.chromium.connect_over_cdp(cdp_url)
@@ -489,7 +498,31 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
             # ============================================================
 
             print(f"[OK] Итерация #{{iteration_number}} успешно завершена")
-            return True
+            return True'''
+
+        return f'''# ============================================================
+# ГЛАВНАЯ ФУНКЦИЯ ИТЕРАЦИИ
+# ============================================================
+
+async def run_automation_iteration(iteration_number: int, data_row: Dict):
+    """
+    Запуск одной итерации автоматизации с Playwright
+
+    Args:
+        iteration_number: Номер итерации
+        data_row: Данные из CSV для этой итерации
+    """
+    profile_uuid = None
+    browser = None
+    context = None
+    page = None
+
+    print(f"\\n{{'='*60}}")
+    print(f"Итерация #{{iteration_number}}")
+    print(f"Данные: {{data_row}}")
+    print(f"{{'='*60}}\\n")
+
+    try:{sms_block}{browser_launch_code}
 
     except Exception as e:
         error_msg = str(e)
