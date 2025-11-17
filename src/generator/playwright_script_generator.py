@@ -121,9 +121,9 @@ SMS_API_BASE_URL = "https://daisysms.com/stubs/handler_api.php"
 # ============================================================
 
 def create_profile() -> Optional[str]:
-    """Создание профиля через Octobrowser API"""
-    url = f"{API_BASE_URL}/profiles"
-    headers = {"X-Octo-Api-Token": API_TOKEN}
+    """Создание профиля через локальный Octobrowser API"""
+    url = f"{LOCAL_API_URL}/profiles"
+    headers = {}
 
     profile_data = {
         "title": f"AutoProfile_{int(time.time())}",
@@ -556,7 +556,7 @@ async def main():
         successful_iterations = 0
         failed_iterations = 0
 
-        print(f"\\nЗапуск автоматизации для {{total_iterations}} строк данных\\n")
+        print(f"\\nЗапуск автоматизации для {total_iterations} строк данных\\n")
 
         # Запуск для каждой строки
         for i, data_row in enumerate(data_rows, start=1):
@@ -570,21 +570,21 @@ async def main():
             # Пауза между итерациями
             if i < total_iterations:
                 pause_seconds = 5
-                print(f"\\nПауза {{pause_seconds}} секунд перед следующей итерацией...")
+                print(f"\\nПауза {pause_seconds} секунд перед следующей итерацией...")
                 await asyncio.sleep(pause_seconds)
 
         # Итоговая статистика
         print("\\n" + "="*60)
         print("ИТОГО:")
-        print(f"Всего итераций: {{total_iterations}}")
-        print(f"Успешных: {{successful_iterations}}")
-        print(f"С ошибками: {{failed_iterations}}")
+        print(f"Всего итераций: {total_iterations}")
+        print(f"Успешных: {successful_iterations}")
+        print(f"С ошибками: {failed_iterations}")
         print("="*60)
 
     except KeyboardInterrupt:
         print("\\n[ПРЕРВАНО] Выполнение остановлено пользователем")
     except Exception as e:
-        print(f"\\n[ERROR] Критическая ошибка: {{e}}")
+        print(f"\\n[ERROR] Критическая ошибка: {e}")
         import traceback
         traceback.print_exc()
 
