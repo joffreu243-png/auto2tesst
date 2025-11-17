@@ -17,6 +17,10 @@ class PlaywrightParser:
         self.field_types = []         # Типы полей ('phone', 'otp', 'unknown')
         self.detector = PhoneAndOTPDetector()
 
+        # Ручные подсказки от пользователя
+        self.manual_phone_value = None  # Значение номера телефона из кода (например: "8434756290")
+        self.manual_otp_value = None    # Значение OTP кода из кода (например: "3131323")
+
     def parse_playwright_code(self, code: str) -> Dict:
         """
         Парсит Playwright код и извлекает действия
@@ -59,6 +63,27 @@ class PlaywrightParser:
             'csv_headers': self.variable_names,
             'converted_code': converted_code
         }
+
+    def set_manual_field_hints(self, phone_value: Optional[str] = None, otp_value: Optional[str] = None):
+        """
+        Установить ручные подсказки для определения типов полей
+
+        Args:
+            phone_value: Значение номера телефона из кода (например: "8434756290")
+            otp_value: Значение OTP кода из кода (например: "3131323")
+
+        Пример:
+            parser.set_manual_field_hints(phone_value="8434756290", otp_value="3131323")
+            # Теперь fill("8434756290") будет помечено как phone_number
+            # А fill("3131323") будет помечено как otp_code
+        """
+        self.manual_phone_value = phone_value
+        self.manual_otp_value = otp_value
+        print(f"[PARSER] Ручные подсказки установлены:")
+        if phone_value:
+            print(f"  - Номер телефона: {phone_value}")
+        if otp_value:
+            print(f"  - OTP код: {otp_value}")
 
     def _extract_url(self, code: str) -> str:
         """Извлекает URL из page.goto()"""
@@ -284,6 +309,16 @@ class PlaywrightParser:
             value = field['value']
             field_type = field['type']
             confidence = field['confidence']
+
+            # ПРИОРИТЕТ 1: Ручные подсказки от пользователя
+            if self.manual_phone_value and value == self.manual_phone_value:
+                field_type = 'phone'
+                print(f"[PARSER] ✓ Поле '{value}' помечено как PHONE (ручная подсказка)")
+            elif self.manual_otp_value and value == self.manual_otp_value:
+                field_type = 'otp'
+                print(f"[PARSER] ✓ Поле '{value}' помечено как OTP (ручная подсказка)")
+            # ПРИОРИТЕТ 2: Автоматическое определение детектором
+            # (field_type уже установлен детектором)
 
             # Генерировать имя переменной на основе типа
             var_name = self._generate_variable_name_with_type(value, field_type, len(self.extracted_values))
@@ -514,6 +549,8 @@ class PlaywrightParser:
                     code_lines.append(f'    if otp_code:')
                     code_lines.append(f'        data_row["{var_name}"] = otp_code  # Перезаписать OTP из CSV')
                     code_lines.append(f'        print(f"[OTP] [OK] Получен код: {{otp_code}}")')
+                    code_lines.append(f'        # ЗАПИСЬ В CSV: сохранить полученный OTP для логирования')
+                    code_lines.append(f'        update_csv_row(CSV_FILENAME, iteration_number - 1, otp_code=otp_code)')
                     code_lines.append(f'    else:')
                     code_lines.append(f'        print("[OTP ERROR] Не удалось получить OTP код")')
                     code_lines.append('')

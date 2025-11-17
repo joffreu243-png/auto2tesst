@@ -419,6 +419,60 @@ def load_data_from_csv(filename: str) -> List[Dict]:
         return []
 
 
+def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = None, otp_code: Optional[str] = None):
+    """
+    Обновить строку CSV файла с реальными значениями phone_number и otp_code
+
+    Args:
+        filename: Имя CSV файла
+        row_index: Индекс строки (начиная с 0)
+        phone_number: Новое значение для колонки phone_number
+        otp_code: Новое значение для колонки otp_code
+    """
+    try:
+        # Читаем весь CSV
+        rows = []
+        fieldnames = []
+        with open(filename, 'r', encoding='utf-8', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                rows.append(row)
+
+        if not rows:
+            print(f"[CSV WARNING] Файл пустой: {filename}")
+            return
+
+        if row_index < 0 or row_index >= len(rows):
+            print(f"[CSV WARNING] Неверный индекс строки: {row_index}")
+            return
+
+        # Обновляем значения в строке
+        updated = False
+        if phone_number is not None:
+            rows[row_index]['phone_number'] = phone_number
+            updated = True
+            print(f"[CSV] Обновлено: строка {row_index + 1}, phone_number = {phone_number}")
+
+        if otp_code is not None:
+            rows[row_index]['otp_code'] = otp_code
+            updated = True
+            print(f"[CSV] Обновлено: строка {row_index + 1}, otp_code = {otp_code}")
+
+        # Записываем обратно в файл
+        if updated:
+            with open(filename, 'w', encoding='utf-8', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+            print(f"[CSV] [OK] Файл обновлен: {filename}")
+
+    except FileNotFoundError:
+        print(f"[CSV ERROR] Файл не найден: {filename}")
+    except Exception as e:
+        print(f"[CSV ERROR] Ошибка обновления CSV: {e}")
+
+
 '''
 
     def _generate_main_iteration(self, user_code: str, use_sms: bool = False, target: str = 'library') -> str:
@@ -460,6 +514,9 @@ def load_data_from_csv(filename: str) -> List[Dict]:
                     data_row['phone_number'] = phone_number
 
                 print(f"[SMS] [OK] Activation ID: {sms_activation_id}")
+
+                # ЗАПИСЬ В CSV: сохранить полученный номер для логирования
+                update_csv_row(CSV_FILENAME, iteration_number - 1, phone_number=data_row['phone_number'])
             else:
                 # FAIL-FAST: НЕ ЗАПУСКАЕМ СКРИПТ БЕЗ НОМЕРА!
                 print("[CRITICAL] ==========================================")

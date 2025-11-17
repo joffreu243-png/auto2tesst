@@ -1529,62 +1529,171 @@ test('test', async ({ page }) => {
                 messagebox.showwarning("Предупреждение", "Вставьте код Playwright для импорта")
                 return
 
-            try:
-                # Парсим Playwright код
-                self.imported_data = self.playwright_parser.parse_playwright_code(code)
-
-                # Показать информацию
-                info_msg = f"✅ Playwright тест успешно импортирован!\n\n"
-                info_msg += f"URL: {self.imported_data['url']}\n"
-                info_msg += f"Действий: {len(self.imported_data['actions'])}\n"
-                info_msg += f"Извлечено значений: {len(self.imported_data['values'])}\n\n"
-
-                # Добавить список действий с селекторами
-                info_msg += "СПИСОК ДЕЙСТВИЙ:\n"
-                info_msg += "=" * 50 + "\n"
-                for i, action in enumerate(self.imported_data['actions'], 1):
-                    action_type = action['type'].upper()
-                    if action['type'] == 'goto':
-                        info_msg += f"{i}. {action_type}: {action['url']}\n"
-                    elif 'selector' in action:
-                        sel = action['selector']
-                        sel_type = sel.get('type', 'unknown')
-                        info_msg += f"{i}. {action_type}: {sel_type}\n"
-                    else:
-                        info_msg += f"{i}. {action_type}\n"
-                info_msg += "=" * 50 + "\n\n"
-
-                if self.imported_data['values']:
-                    info_msg += f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n\n"
-                    info_msg += "Переходим к редактированию данных..."
-                    messagebox.showinfo("Успешный импорт", info_msg)
-
-                    # Инициализировать данные для CSV
-                    self.csv_data_rows = [self.imported_data['values']]
-
-                    # Закрыть окно импорта
-                    import_window.destroy()
-
-                    # Показать редактор данных
-                    self.show_imported_data_editor()
-                else:
-                    info_msg += "Значения для параметризации не найдены.\n"
-                    info_msg += "Код вставлен в редактор."
-                    messagebox.showinfo("Успешный импорт", info_msg)
-
-                    # Вставить код в редактор
-                    self.code_editor.delete("1.0", tk.END)
-                    self.code_editor.insert("1.0", self.imported_data['converted_code'])
-                    import_window.destroy()
-
-            except Exception as e:
-                messagebox.showerror("Ошибка", f"Ошибка импорта Playwright кода:\n{str(e)}")
+            # Показать диалог для указания phone и OTP значений
+            self.show_field_hints_dialog(code, import_window)
 
         ttk.Button(buttons_frame, text="📋 Загрузить пример", command=load_example).pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="✅ Импортировать", command=process_import,
                   style="Accent.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="❌ Отмена",
                   command=import_window.destroy).pack(side=tk.LEFT, padx=2)
+
+    def show_field_hints_dialog(self, code: str, parent_window):
+        """
+        Показать диалог для указания значений phone и OTP
+
+        Args:
+            code: Код Playwright теста
+            parent_window: Родительское окно импорта
+        """
+        # Создать диалоговое окно
+        hints_dialog = tk.Toplevel(self.root)
+        hints_dialog.title("📱 Указание полей SMS")
+        hints_dialog.geometry("600x400")
+        hints_dialog.transient(self.root)
+        hints_dialog.grab_set()
+
+        # Инструкция
+        instruction = ttk.LabelFrame(hints_dialog, text="📖 Инструкция", padding=10)
+        instruction.pack(fill=tk.X, padx=10, pady=10)
+
+        instruction_text = """
+Чтобы система правильно определила поля НОМЕР ТЕЛЕФОНА и OTP КОД,
+укажите их значения ИЗ ВАШЕГО КОДА:
+
+1. Найдите в коде строку с номером телефона (например: fill("8434756290"))
+2. Скопируйте ЗНАЧЕНИЕ номера: 8434756290
+3. Вставьте в поле "Номер телефона"
+
+4. Найдите в коде строку с OTP кодом (например: fill("3131323"))
+5. Скопируйте ЗНАЧЕНИЕ OTP: 3131323
+6. Вставьте в поле "OTP код"
+
+Система найдет эти значения в коде и пометит их как phone_number и otp_code.
+
+⚠️ ВАЖНО: Укажите ТОЧНОЕ значение как в коде (с кавычками или без)
+        """
+
+        ttk.Label(instruction, text=instruction_text, justify=tk.LEFT, wraplength=550).pack()
+
+        # Поля ввода
+        fields_frame = ttk.LabelFrame(hints_dialog, text="🔢 Значения из кода", padding=10)
+        fields_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Поле для номера телефона
+        phone_frame = ttk.Frame(fields_frame)
+        phone_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(phone_frame, text="📱 Номер телефона (например: 8434756290):", width=40).pack(side=tk.LEFT)
+        phone_entry = ttk.Entry(phone_frame, width=30)
+        phone_entry.pack(side=tk.LEFT, padx=5)
+
+        # Поле для OTP
+        otp_frame = ttk.Frame(fields_frame)
+        otp_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(otp_frame, text="🔢 OTP код (например: 3131323):", width=40).pack(side=tk.LEFT)
+        otp_entry = ttk.Entry(otp_frame, width=30)
+        otp_entry.pack(side=tk.LEFT, padx=5)
+
+        # Чекбокс для пропуска
+        skip_var = tk.BooleanVar(value=False)
+        skip_frame = ttk.Frame(fields_frame)
+        skip_frame.pack(fill=tk.X, pady=10)
+        ttk.Checkbutton(skip_frame, text="⏭️ Пропустить (автоматическое определение)",
+                       variable=skip_var).pack(anchor=tk.W)
+
+        # Кнопки
+        buttons_frame = ttk.Frame(hints_dialog)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        def apply_hints():
+            phone_value = phone_entry.get().strip()
+            otp_value = otp_entry.get().strip()
+
+            # Если пропустить - не устанавливать подсказки
+            if skip_var.get():
+                phone_value = None
+                otp_value = None
+                print("[GUI] Ручные подсказки пропущены - будет автоматическое определение")
+            else:
+                # Проверить что хотя бы одно значение указано
+                if not phone_value and not otp_value:
+                    messagebox.showwarning("Предупреждение",
+                                          "Укажите хотя бы одно значение\n"
+                                          "или выберите 'Пропустить'")
+                    return
+
+            # Установить подсказки в парсер
+            self.playwright_parser.set_manual_field_hints(phone_value=phone_value, otp_value=otp_value)
+
+            # Закрыть диалог
+            hints_dialog.destroy()
+
+            # Продолжить импорт
+            self.process_playwright_import(code, parent_window)
+
+        ttk.Button(buttons_frame, text="✅ Применить", command=apply_hints,
+                  style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(buttons_frame, text="❌ Отмена",
+                  command=lambda: [hints_dialog.destroy(), parent_window.destroy()]).pack(side=tk.LEFT, padx=2)
+
+    def process_playwright_import(self, code: str, import_window):
+        """
+        Обработать импорт Playwright кода (после установки подсказок)
+
+        Args:
+            code: Код Playwright теста
+            import_window: Окно импорта
+        """
+        try:
+            # Парсим Playwright код
+            self.imported_data = self.playwright_parser.parse_playwright_code(code)
+
+            # Показать информацию
+            info_msg = f"✅ Playwright тест успешно импортирован!\n\n"
+            info_msg += f"URL: {self.imported_data['url']}\n"
+            info_msg += f"Действий: {len(self.imported_data['actions'])}\n"
+            info_msg += f"Извлечено значений: {len(self.imported_data['values'])}\n\n"
+
+            # Добавить список действий с селекторами
+            info_msg += "СПИСОК ДЕЙСТВИЙ:\n"
+            info_msg += "=" * 50 + "\n"
+            for i, action in enumerate(self.imported_data['actions'], 1):
+                action_type = action['type'].upper()
+                if action['type'] == 'goto':
+                    info_msg += f"{i}. {action_type}: {action['url']}\n"
+                elif 'selector' in action:
+                    sel = action['selector']
+                    sel_type = sel.get('type', 'unknown')
+                    info_msg += f"{i}. {action_type}: {sel_type}\n"
+                else:
+                    info_msg += f"{i}. {action_type}\n"
+            info_msg += "=" * 50 + "\n\n"
+
+            if self.imported_data['values']:
+                info_msg += f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n\n"
+                info_msg += "Переходим к редактированию данных..."
+                messagebox.showinfo("Успешный импорт", info_msg)
+
+                # Инициализировать данные для CSV
+                self.csv_data_rows = [self.imported_data['values']]
+
+                # Закрыть окно импорта
+                import_window.destroy()
+
+                # Показать редактор данных
+                self.show_imported_data_editor()
+            else:
+                info_msg += "Значения для параметризации не найдены.\n"
+                info_msg += "Код вставлен в редактор."
+                messagebox.showinfo("Успешный импорт", info_msg)
+
+                # Вставить код в редактор
+                self.code_editor.delete("1.0", tk.END)
+                self.code_editor.insert("1.0", self.imported_data['converted_code'])
+                import_window.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка импорта Playwright кода:\n{str(e)}")
 
     def import_selenium_ide_file(self):
         """Импортирует .side файл Selenium IDE"""
