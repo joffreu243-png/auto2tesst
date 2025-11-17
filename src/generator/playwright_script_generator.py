@@ -413,16 +413,17 @@ def load_data_from_csv(filename: str) -> List[Dict]:
             # ============================================================
             # ХЕЛПЕР ДЛЯ ПОЛУЧЕНИЯ OTP
             # ============================================================
-            # Если в data_row запрашивается 'otp_code', получить его из SMS
-            if USE_SMS_PROVIDER and 'otp_code' in data_row and sms_activation_id:
-                if not data_row.get('otp_code'):  # Если еще не получен
-                    print("[SMS] Получение OTP кода...")
-                    otp_code = get_sms_code(sms_activation_id, timeout=180)
-                    if otp_code:
-                        data_row['otp_code'] = otp_code
-                        print(f"[SMS] [OK] OTP добавлен в data_row: {otp_code}")
-                    else:
-                        print("[SMS ERROR] Не удалось получить OTP")
+            # Получить OTP код из SMS если есть активация
+            if USE_SMS_PROVIDER and sms_activation_id:
+                print("[SMS] Ожидание OTP кода...")
+                otp_code = get_sms_code(sms_activation_id, timeout=180)
+                if otp_code:
+                    data_row['otp_code'] = otp_code  # ПЕРЕЗАПИСАТЬ значение из CSV
+                    print(f"[SMS] [OK] OTP получен и добавлен в data_row: {otp_code}")
+                else:
+                    print("[SMS ERROR] Не удалось получить OTP код")
+                    # Оставить значение из CSV или пустую строку
+                    if 'otp_code' not in data_row:
                         data_row['otp_code'] = ""
 
 '''
