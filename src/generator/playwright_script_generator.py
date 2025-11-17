@@ -453,10 +453,10 @@ def load_data_from_csv(filename: str) -> List[Dict]:
                 print(f"[SMS] [OK] Activation ID: {sms_activation_id}")
             else:
                 # FAIL-FAST: НЕ ЗАПУСКАЕМ СКРИПТ БЕЗ НОМЕРА!
-                print("[CRITICAL] ═══════════════════════════════════════════")
+                print("[CRITICAL] ==========================================")
                 print("[CRITICAL] НЕ УДАЛОСЬ ПОЛУЧИТЬ НОМЕР ОТ SMS API!")
                 print("[CRITICAL] ПРЕРЫВАНИЕ ИТЕРАЦИИ - БЕЗ НОМЕРА НЕ ЗАПУСКАЕМ")
-                print("[CRITICAL] ═══════════════════════════════════════════")
+                print("[CRITICAL] ==========================================")
                 return False  # Прервать итерацию
 '''
 
