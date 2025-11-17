@@ -227,9 +227,12 @@ def get_phone_number() -> Optional[Dict]:
     }
 
     try:
+        print(f"[SMS] Запрос номера: service={SMS_SERVICE}")
         response = requests.get(url, params=params, timeout=30)
         response.raise_for_status()
         result = response.text.strip()
+
+        print(f"[SMS] Ответ API: {result}")
 
         # Формат: ACCESS_NUMBER:ID:PHONE_NUMBER
         if result.startswith('ACCESS_NUMBER:'):
@@ -237,17 +240,27 @@ def get_phone_number() -> Optional[Dict]:
             activation_id = parts[1]
             phone_number = parts[2]
 
-            print(f"[SMS] Получен номер: {phone_number} (ID: {activation_id})")
+            print(f"[SMS] [OK] Получен номер: {phone_number} (ID: {activation_id})")
             return {
                 'activation_id': activation_id,
                 'phone_number': phone_number
             }
         else:
-            print(f"[SMS ERROR] Ошибка получения номера: {result}")
+            # Детальное логирование ошибок от API
+            error_messages = {
+                'NO_NUMBERS': 'Нет доступных номеров для данного сервиса',
+                'NO_BALANCE': 'Недостаточно средств на балансе',
+                'BAD_ACTION': 'Неверное действие (проверьте параметры)',
+                'BAD_SERVICE': 'Неверный код сервиса',
+                'BAD_KEY': 'Неверный API ключ',
+                'ERROR_SQL': 'Ошибка на стороне сервера'
+            }
+            error_msg = error_messages.get(result, f"Неизвестная ошибка: {result}")
+            print(f"[SMS ERROR] {error_msg}")
             return None
 
     except Exception as e:
-        print(f"[SMS ERROR] Ошибка запроса: {e}")
+        print(f"[SMS ERROR] Ошибка запроса к API: {e}")
         return None
 
 
@@ -390,7 +403,7 @@ def load_data_from_csv(filename: str) -> List[Dict]:
         sms_activation_id = None
 
         if USE_SMS_PROVIDER:
-            print("[SMS] Получение номера телефона...")
+            print("[SMS] Получение номера телефона от провайдера...")
 
             # Получить номер
             sms_data = get_phone_number()
@@ -398,12 +411,17 @@ def load_data_from_csv(filename: str) -> List[Dict]:
                 sms_activation_id = sms_data['activation_id']
                 phone_number = sms_data['phone_number']
 
-                # Добавить номер в данные
+                # ВСЕГДА перезаписать номер из CSV реальным номером от API
                 data_row['phone_number'] = phone_number
-                print(f"[SMS] [OK] Номер добавлен в data_row: {phone_number}")
+                print(f"[SMS] [OK] Номер получен от API: {phone_number}")
+                print(f"[SMS] [INFO] Активация ID: {sms_activation_id}")
             else:
-                print("[SMS ERROR] Не удалось получить номер")
-                # Продолжаем выполнение - возможно номер не нужен
+                print("[SMS ERROR] Не удалось получить номер от провайдера!")
+                print("[SMS WARNING] Будет использован номер из CSV (если есть)")
+                # Если в CSV нет номера - очистить
+                if 'phone_number' not in data_row or not data_row.get('phone_number'):
+                    print("[SMS ERROR] В CSV тоже нет номера! Итерация может провалиться.")
+                    data_row['phone_number'] = ""
 '''
 
         # OTP получение теперь встроено в пользовательский код (в парсере)
