@@ -265,6 +265,40 @@ def get_phone_number() -> Optional[Dict]:
         return None
 
 
+def get_phone_number_with_retry(max_retries=5) -> Optional[Dict]:
+    """
+    Получить номер с УМНОЙ retry логикой и экспоненциальной задержкой
+
+    Реализует Enterprise Pattern: Retry with Exponential Backoff
+
+    Args:
+        max_retries: Максимальное количество попыток (по умолчанию 5)
+
+    Returns:
+        Dict с номером или None после всех попыток
+    """
+    print(f"[SMS RETRY] Начинаем получение номера (макс. {max_retries} попыток)")
+
+    for attempt in range(1, max_retries + 1):
+        print(f"[SMS RETRY] === Попытка {attempt}/{max_retries} ===")
+
+        sms_data = get_phone_number()
+
+        if sms_data:
+            print(f"[SMS RETRY] ✓ УСПЕХ на попытке {attempt}!")
+            return sms_data
+
+        # Если не последняя попытка - ждем перед повтором
+        if attempt < max_retries:
+            # Экспоненциальная задержка: 2, 4, 8, 16, 32 секунды
+            wait_time = 2 ** attempt
+            print(f"[SMS RETRY] ⏳ Ожидание {wait_time} секунд перед следующей попыткой...")
+            time.sleep(wait_time)
+
+    print(f"[SMS RETRY] ✗ ПРОВАЛ: Не удалось получить номер после {max_retries} попыток")
+    return None
+
+
 def get_sms_code(activation_id: str, timeout: int = 180) -> Optional[str]:
     """
     Получить SMS код (OTP)
@@ -398,31 +432,32 @@ def load_data_from_csv(filename: str) -> List[Dict]:
         if use_sms:
             sms_block = '''
         # ============================================================
-        # ПОЛУЧЕНИЕ НОМЕРА И OTP ОТ SMS ПРОВАЙДЕРА
+        # ПОЛУЧЕНИЕ НОМЕРА С УМНОЙ RETRY ЛОГИКОЙ (Fail-Fast Pattern)
         # ============================================================
 
         sms_activation_id = None
 
         if USE_SMS_PROVIDER:
-            print("[SMS] Получение номера телефона от провайдера...")
+            print("[SMS] === НАЧИНАЕМ ПОЛУЧЕНИЕ НОМЕРА ===")
 
-            # Получить номер
-            sms_data = get_phone_number()
+            # Получить номер с RETRY (до 5 попыток с экспоненциальной задержкой)
+            sms_data = get_phone_number_with_retry(max_retries=5)
+
             if sms_data:
                 sms_activation_id = sms_data['activation_id']
                 phone_number = sms_data['phone_number']
 
-                # ВСЕГДА перезаписать номер из CSV реальным номером от API
+                # ПЕРЕЗАПИСАТЬ номер из CSV реальным номером от API
                 data_row['phone_number'] = phone_number
-                print(f"[SMS] [OK] Номер получен от API: {phone_number}")
-                print(f"[SMS] [INFO] Активация ID: {sms_activation_id}")
+                print(f"[SMS] [OK] Номер сохранен: {phone_number}")
+                print(f"[SMS] [OK] Activation ID: {sms_activation_id}")
             else:
-                print("[SMS ERROR] Не удалось получить номер от провайдера!")
-                print("[SMS WARNING] Будет использован номер из CSV (если есть)")
-                # Если в CSV нет номера - очистить
-                if 'phone_number' not in data_row or not data_row.get('phone_number'):
-                    print("[SMS ERROR] В CSV тоже нет номера! Итерация может провалиться.")
-                    data_row['phone_number'] = ""
+                # FAIL-FAST: НЕ ЗАПУСКАЕМ СКРИПТ БЕЗ НОМЕРА!
+                print("[CRITICAL] ═══════════════════════════════════════════")
+                print("[CRITICAL] НЕ УДАЛОСЬ ПОЛУЧИТЬ НОМЕР ОТ SMS API!")
+                print("[CRITICAL] ПРЕРЫВАНИЕ ИТЕРАЦИИ - БЕЗ НОМЕРА НЕ ЗАПУСКАЕМ")
+                print("[CRITICAL] ═══════════════════════════════════════════")
+                return False  # Прервать итерацию
 '''
 
         # OTP получение теперь встроено в пользовательский код (в парсере)
