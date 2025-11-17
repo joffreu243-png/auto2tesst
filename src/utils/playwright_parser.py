@@ -359,9 +359,11 @@ class PlaywrightParser:
             elif action['type'] == 'click':
                 selector = action['selector']
                 selector_code = self._generate_selector_code(selector)
+                # Экранировать кавычки для использования в f-строке
+                selector_code_escaped = selector_code.replace('"', '\\"')
 
                 code_lines.append('# Клик по элементу')
-                code_lines.append(f'print(f"DEBUG: Клик по: {selector_code}")')
+                code_lines.append(f'print(f"DEBUG: Клик по: {selector_code_escaped}")')
                 code_lines.append(f'await page.{selector_code}.click()')
                 code_lines.append('print("[OK] Клик выполнен")')
                 code_lines.append('await page.wait_for_timeout(2000)  # Пауза 2 сек')
@@ -370,10 +372,12 @@ class PlaywrightParser:
             elif action['type'] == 'fill':
                 selector = action['selector']
                 selector_code = self._generate_selector_code(selector)
+                # Экранировать кавычки для использования в f-строке
+                selector_code_escaped = selector_code.replace('"', '\\"')
                 var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
 
                 code_lines.append(f'# Ввод текста: {var_name}')
-                code_lines.append(f'print(f"DEBUG: Заполнение поля {var_name}: {selector_code}")')
+                code_lines.append(f'print(f"DEBUG: Заполнение поля {var_name}: {selector_code_escaped}")')
                 code_lines.append(f'await page.{selector_code}.fill(data_row["{var_name}"])')
                 code_lines.append(f'print(f"[OK] Введено {{data_row[\'{var_name}\']}}")')
                 code_lines.append('await page.wait_for_timeout(1000)  # Пауза 1 сек')
@@ -390,6 +394,9 @@ class PlaywrightParser:
         if sel_type == 'chain':
             chain = selector['chain']
             modifier = selector.get('modifier')
+
+            # Нормализовать кавычки - заменить одинарные на двойные для консистентности
+            chain = chain.replace("'", '"')
 
             # Построить полный селектор
             result = chain
