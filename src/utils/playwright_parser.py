@@ -72,10 +72,48 @@ class PlaywrightParser:
         actions = []
         lines = code.split('\n')
 
+        # Переменные для отслеживания блоков альтернатив
+        in_alternative_block = False
+        current_alternative_group = []
+        current_alternative_variant = []
+
         for i, line in enumerate(lines):
             line = line.strip()
 
-            # Пропустить комментарии и пустые строки
+            # Обработка маркеров альтернатив
+            if line.startswith('# ALTERNATIVE START') or (line == '# ALTERNATIVE' and not in_alternative_block):
+                # Начало блока альтернатив
+                in_alternative_block = True
+                current_alternative_group = []
+                current_alternative_variant = []
+                continue
+
+            elif line == '# ALTERNATIVE' and in_alternative_block:
+                # Разделитель между вариантами
+                if current_alternative_variant:
+                    current_alternative_group.append(current_alternative_variant)
+                    current_alternative_variant = []
+                continue
+
+            elif line.startswith('# ALTERNATIVE END'):
+                # Конец блока альтернатив
+                if current_alternative_variant:
+                    current_alternative_group.append(current_alternative_variant)
+
+                # Добавить блок альтернатив как одно действие
+                if current_alternative_group:
+                    actions.append({
+                        'type': 'alternatives',
+                        'variants': current_alternative_group,
+                        'line': i
+                    })
+
+                in_alternative_block = False
+                current_alternative_group = []
+                current_alternative_variant = []
+                continue
+
+            # Пропустить обычные комментарии и пустые строки
             if not line or line.startswith('#') or line.startswith('//'):
                 continue
 
@@ -83,22 +121,30 @@ class PlaywrightParser:
             if 'page.goto(' in line:
                 url_match = re.search(r'page\.goto\(["\'](.+?)["\']\)', line)
                 if url_match:
-                    actions.append({
+                    action = {
                         'type': 'goto',
                         'url': url_match.group(1),
                         'line': i
-                    })
+                    }
+                    if in_alternative_block:
+                        current_alternative_variant.append(action)
+                    else:
+                        actions.append(action)
                 continue
 
             # .click() - клик
             if '.click()' in line:
                 selector = self._extract_playwright_selector(line)
                 if selector:
-                    actions.append({
+                    action = {
                         'type': 'click',
                         'selector': selector,
                         'line': i
-                    })
+                    }
+                    if in_alternative_block:
+                        current_alternative_variant.append(action)
+                    else:
+                        actions.append(action)
                 continue
 
             # .fill() - ввод текста
@@ -107,12 +153,16 @@ class PlaywrightParser:
                 value_match = re.search(r"\.fill\(['\"](.+?)['\"]\)", line)
                 if value_match:
                     # Даже если селектор не распознан, сохраняем действие
-                    actions.append({
+                    action = {
                         'type': 'fill',
                         'selector': selector or {'type': 'unknown', 'original': line},
                         'value': value_match.group(1),
                         'line': i
-                    })
+                    }
+                    if in_alternative_block:
+                        current_alternative_variant.append(action)
+                    else:
+                        actions.append(action)
                 continue
 
             # .type() - постепенный ввод текста
@@ -121,13 +171,26 @@ class PlaywrightParser:
                 value_match = re.search(r"\.type\(['\"](.+?)['\"]\)", line)
                 if value_match:
                     # Даже если селектор не распознан, сохраняем действие
-                    actions.append({
+                    action = {
                         'type': 'fill',  # Используем fill вместо type
                         'selector': selector or {'type': 'unknown', 'original': line},
                         'value': value_match.group(1),
                         'line': i
-                    })
+                    }
+                    if in_alternative_block:
+                        current_alternative_variant.append(action)
+                    else:
+                        actions.append(action)
                 continue
+
+        # Если блок альтернатив не был закрыт - закрыть автоматически
+        if in_alternative_block and current_alternative_variant:
+            current_alternative_group.append(current_alternative_variant)
+        if current_alternative_group:
+            actions.append({
+                'type': 'alternatives',
+                'variants': current_alternative_group
+            })
 
         return actions
 
@@ -366,6 +429,52 @@ class PlaywrightParser:
                 code_lines.append(f'except Exception as e:')
                 code_lines.append(f'    print(f"[WARNING] Проблема при загрузке страницы: {{e}}")')
                 code_lines.append(f'    print("[INFO] Продолжаем работу...")')
+                code_lines.append('')
+
+            elif action['type'] == 'alternatives':
+                # Генерация кода для альтернативных сценариев
+                variants = action['variants']
+                code_lines.append('# ========== АЛЬТЕРНАТИВНЫЕ СЦЕНАРИИ ==========')
+                code_lines.append('# Пробуем разные варианты UI (A/B тесты, модальные окна, разные состояния)')
+                code_lines.append('alternative_success = False')
+                code_lines.append('')
+
+                for variant_idx, variant_actions in enumerate(variants, 1):
+                    code_lines.append(f'# --- Вариант {variant_idx} ---')
+                    code_lines.append(f'if not alternative_success:')
+                    code_lines.append(f'    try:')
+                    code_lines.append(f'        print("[ALTERNATIVE] Пробуем вариант {variant_idx}...")')
+
+                    # Генерировать код для каждого действия в варианте
+                    for sub_action in variant_actions:
+                        if sub_action['type'] == 'click':
+                            selector = sub_action['selector']
+                            selector_code = self._generate_selector_code(selector)
+                            code_lines.append(f'        await page.{selector_code}.wait_for(state="visible", timeout=5000)')
+                            code_lines.append(f'        await page.{selector_code}.click()')
+                            code_lines.append(f'        await page.wait_for_timeout(1000)')
+
+                        elif sub_action['type'] == 'fill':
+                            selector = sub_action['selector']
+                            selector_code = self._generate_selector_code(selector)
+                            value = sub_action['value']
+                            code_lines.append(f'        await page.{selector_code}.wait_for(state="visible", timeout=5000)')
+                            code_lines.append(f'        await page.{selector_code}.fill("{value}")')
+                            code_lines.append(f'        await page.wait_for_timeout(500)')
+
+                        elif sub_action['type'] == 'goto':
+                            url = sub_action['url']
+                            code_lines.append(f'        await page.goto("{url}", wait_until="domcontentloaded", timeout=30000)')
+                            code_lines.append(f'        await page.wait_for_timeout(2000)')
+
+                    code_lines.append(f'        print("[ALTERNATIVE] [SUCCESS] Вариант {variant_idx} сработал!")')
+                    code_lines.append(f'        alternative_success = True')
+                    code_lines.append(f'    except Exception as e:')
+                    code_lines.append(f'        print(f"[ALTERNATIVE] Вариант {variant_idx} не сработал: {{e}}")')
+                    code_lines.append('')
+
+                code_lines.append('if not alternative_success:')
+                code_lines.append('    print("[ALTERNATIVE] [WARNING] Ни один из вариантов не сработал, продолжаем...")')
                 code_lines.append('')
 
             elif action['type'] == 'click':

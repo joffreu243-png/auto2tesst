@@ -269,6 +269,17 @@ class OctobrowserScriptBuilder:
 
     def create_widgets(self):
         """Создание виджетов интерфейса"""
+        # === ВЕРХНЕЕ МЕНЮ ===
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        # Меню "Справка"
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Справка", menu=help_menu)
+        help_menu.add_command(label="📖 Альтернативные сценарии", command=self.show_alternatives_help)
+        help_menu.add_separator()
+        help_menu.add_command(label="О программе", command=self.show_about)
+
         # Главный контейнер
         main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -1928,6 +1939,166 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         ttk.Button(buttons_frame, text="💾 Сохранить CSV", command=save_csv).pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="✅ Применить к редактору", command=apply_to_editor,
                   style="Accent.TButton").pack(side=tk.LEFT, padx=2)
+
+    def show_alternatives_help(self):
+        """Показать справку по альтернативным сценариям"""
+        help_window = tk.Toplevel(self.root)
+        help_window.title("📖 Справка: Альтернативные сценарии")
+        help_window.geometry("900x700")
+        help_window.transient(self.root)
+
+        # Создать прокручиваемый текстовый виджет
+        text_frame = ttk.Frame(help_window)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Текст справки
+        help_text = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, font=("Consolas", 10))
+        help_text.pack(fill=tk.BOTH, expand=True)
+
+        # Содержание справки с примерами из вашего кода
+        content = """
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   АЛЬТЕРНАТИВНЫЕ СЦЕНАРИИ - ШПАРГАЛКА                        ║
+║                                                                              ║
+║  Используйте эту функцию, когда UI может показывать РАЗНЫЕ варианты:        ║
+║  • A/B тесты (разные версии интерфейса)                                     ║
+║  • Модальные окна (появляются/не появляются)                                ║
+║  • Разные состояния (залогинен/не залогинен)                                ║
+║  • Условные элементы (промо, баннеры, попапы)                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 КАК ИСПОЛЬЗОВАТЬ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Запишите код в Playwright Recorder
+2. Вставьте специальные маркеры в код
+3. Генератор автоматически создаст try-except для каждого варианта
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 ПРИМЕР ИЗ ВАШЕГО КОДА:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# ALTERNATIVE START
+page.get_by_role("button", name="Pick your color").click()
+page.get_by_test_id("desktop-view").get_by_test_id("testpagekfkfe_card").click()
+page.get_by_role("button", name="Select", exact=True).nth(2).click()
+# ALTERNATIVE
+page.get_by_role("button", name="Pick your color").click()
+page.get_by_role("button", name="Select", exact=True).click()
+# ALTERNATIVE
+page.get_by_role("button", name="Continue", exact=True).click()
+page.get_by_role("button", name="Select", exact=True).click()
+# ALTERNATIVE END
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ ЧТО ПРОИСХОДИТ ПРИ ГЕНЕРАЦИИ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Генератор создаст код с тремя вариантами:
+
+# ========== АЛЬТЕРНАТИВНЫЕ СЦЕНАРИИ ==========
+alternative_success = False
+
+# --- Вариант 1 ---
+if not alternative_success:
+    try:
+        print("[ALTERNATIVE] Пробуем вариант 1...")
+        await page.get_by_role("button", name="Pick your color").click()
+        await page.get_by_test_id("desktop-view").get_by_test_id("testpagekfkfe_card").click()
+        await page.get_by_role("button", name="Select", exact=True).nth(2).click()
+        print("[ALTERNATIVE] [SUCCESS] Вариант 1 сработал!")
+        alternative_success = True
+    except Exception as e:
+        print(f"[ALTERNATIVE] Вариант 1 не сработал: {e}")
+
+# --- Вариант 2 ---
+if not alternative_success:
+    try:
+        print("[ALTERNATIVE] Пробуем вариант 2...")
+        await page.get_by_role("button", name="Pick your color").click()
+        await page.get_by_role("button", name="Select", exact=True).click()
+        print("[ALTERNATIVE] [SUCCESS] Вариант 2 сработал!")
+        alternative_success = True
+    except Exception as e:
+        print(f"[ALTERNATIVE] Вариант 2 не сработал: {e}")
+
+# --- Вариант 3 ---
+if not alternative_success:
+    try:
+        print("[ALTERNATIVE] Пробуем вариант 3...")
+        await page.get_by_role("button", name="Continue", exact=True).click()
+        await page.get_by_role("button", name="Select", exact=True).click()
+        print("[ALTERNATIVE] [SUCCESS] Вариант 3 сработал!")
+        alternative_success = True
+    except Exception as e:
+        print(f"[ALTERNATIVE] Вариант 3 не сработал: {e}")
+
+if not alternative_success:
+    print("[ALTERNATIVE] [WARNING] Ни один из вариантов не сработал, продолжаем...")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ ПРАВИЛА ИСПОЛЬЗОВАНИЯ МАРКЕРОВ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. # ALTERNATIVE START      ← Начало блока альтернатив (обязательно!)
+2. <код варианта 1>          ← Первый вариант
+3. # ALTERNATIVE              ← Разделитель между вариантами
+4. <код варианта 2>          ← Второй вариант
+5. # ALTERNATIVE              ← Еще разделитель (можно добавлять сколько угодно)
+6. <код варианта 3>          ← Третий вариант
+7. # ALTERNATIVE END         ← Конец блока (обязательно!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 ВАЖНО:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Можно использовать СКОЛЬКО УГОДНО вариантов (2, 3, 5, 10...)
+✓ Скрипт попробует варианты ПО ПОРЯДКУ
+✓ Как только один вариант сработает - остальные пропустятся
+✓ Если ВСЕ варианты провалятся - скрипт продолжит работу
+✓ Работает с любыми действиями: click, fill, goto
+
+✗ НЕ забывайте закрывать блок с # ALTERNATIVE END
+✗ НЕ используйте маркеры внутри обычных комментариев
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎓 СОВЕТ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Когда записываете код в Playwright Recorder:
+1. Пройдите сценарий ПОЛНОСТЬЮ один раз (записывается вариант 1)
+2. Закройте браузер, откройте снова
+3. Пройдите ВТОРОЙ вариант сценария (записывается вариант 2)
+4. Вставьте ОБА варианта в редактор
+5. Добавьте маркеры # ALTERNATIVE START/ALTERNATIVE/END
+6. Нажмите "Сгенерировать скрипт"
+
+ГОТОВО! Теперь скрипт автоматически выберет нужный вариант! 🎉
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Даже если вы запустите эту программу через НЕСКОЛЬКО ЛЕТ, эта справка
+всегда будет доступна в меню "Справка → Альтернативные сценарии" 📚
+        """
+
+        help_text.insert("1.0", content)
+        help_text.config(state=tk.DISABLED)
+
+        # Кнопка закрытия
+        ttk.Button(help_window, text="Закрыть", command=help_window.destroy).pack(pady=10)
+
+    def show_about(self):
+        """Показать информацию о программе"""
+        about_text = (
+            "Octobrowser Script Builder\n\n"
+            "Конструктор скриптов автоматизации\n"
+            "для Octobrowser API\n\n"
+            "Версия: 2.0\n"
+            "Поддержка: Playwright + Selenium\n"
+            "Включает: DaisySMS интеграцию"
+        )
+        messagebox.showinfo("О программе", about_text)
 
 
 def main():
