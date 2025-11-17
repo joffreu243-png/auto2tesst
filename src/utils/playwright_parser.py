@@ -365,17 +365,9 @@ class PlaywrightParser:
                 code_lines.append('# Клик по элементу')
                 code_lines.append(f'print(f"DEBUG: Клик по: {selector_code_escaped}")')
                 code_lines.append(f'try:')
-<<<<<<< HEAD
-                code_lines.append(f'    # Ждем появления элемента (до 20 сек)')
-                code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=20000)')
-                code_lines.append(f'    # Скролл к элементу перед кликом')
-                code_lines.append(f'    await page.{selector_code}.scroll_into_view_if_needed()')
-                code_lines.append(f'    await page.wait_for_timeout(500)  # Пауза после скролла')
-=======
                 code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=20000)')
                 code_lines.append(f'    await page.{selector_code}.scroll_into_view_if_needed()')
                 code_lines.append(f'    await page.wait_for_timeout(500)')
->>>>>>> 0356ec0 (feat: Добавить enterprise-grade retry логику для SMS API и OTP)
                 code_lines.append(f'    await page.{selector_code}.click(timeout=10000)')
                 code_lines.append(f'    print("[OK] Клик выполнен")')
                 code_lines.append(f'except Exception as e:')
