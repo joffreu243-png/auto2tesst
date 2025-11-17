@@ -447,9 +447,18 @@ def load_data_from_csv(filename: str) -> List[Dict]:
                 sms_activation_id = sms_data['activation_id']
                 phone_number = sms_data['phone_number']
 
-                # ПЕРЕЗАПИСАТЬ номер из CSV реальным номером от API
-                data_row['phone_number'] = phone_number
-                print(f"[SMS] [OK] Номер сохранен: {phone_number}")
+                # ОБРАБОТКА НОМЕРА: убрать код страны если нужно
+                # Многие формы ожидают номер БЕЗ кода страны +1
+                if phone_number.startswith('1') and len(phone_number) == 11:
+                    phone_number_without_country = phone_number[1:]  # Убрать первую цифру "1"
+                    print(f"[SMS] [INFO] Номер от API: {phone_number} (с кодом страны)")
+                    print(f"[SMS] [INFO] Номер для формы: {phone_number_without_country} (без кода)")
+                    data_row['phone_number'] = phone_number_without_country
+                else:
+                    # Номер в другом формате - используем как есть
+                    print(f"[SMS] [INFO] Номер: {phone_number} (используем как есть)")
+                    data_row['phone_number'] = phone_number
+
                 print(f"[SMS] [OK] Activation ID: {sms_activation_id}")
             else:
                 # FAIL-FAST: НЕ ЗАПУСКАЕМ СКРИПТ БЕЗ НОМЕРА!
