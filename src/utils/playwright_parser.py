@@ -364,8 +364,14 @@ class PlaywrightParser:
 
                 code_lines.append('# Клик по элементу')
                 code_lines.append(f'print(f"DEBUG: Клик по: {selector_code_escaped}")')
-                code_lines.append(f'await page.{selector_code}.click()')
-                code_lines.append('print("[OK] Клик выполнен")')
+                code_lines.append(f'try:')
+                code_lines.append(f'    # Ждем появления элемента (до 10 сек)')
+                code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=10000)')
+                code_lines.append(f'    await page.{selector_code}.click(timeout=5000)')
+                code_lines.append(f'    print("[OK] Клик выполнен")')
+                code_lines.append(f'except Exception as e:')
+                code_lines.append(f'    print(f"[WARNING] Не удалось кликнуть: {{e}}")')
+                code_lines.append(f'    print("[INFO] Пропускаем клик и продолжаем...")')
                 code_lines.append('await page.wait_for_timeout(2000)  # Пауза 2 сек')
                 code_lines.append('')
 
@@ -392,8 +398,14 @@ class PlaywrightParser:
 
                 code_lines.append(f'# Ввод текста: {var_name}')
                 code_lines.append(f'print(f"DEBUG: Заполнение поля {var_name}: {selector_code_escaped}")')
-                code_lines.append(f'await page.{selector_code}.fill(data_row["{var_name}"])')
-                code_lines.append(f'print(f"[OK] Введено {{data_row[\'{var_name}\']}}")')
+                code_lines.append(f'try:')
+                code_lines.append(f'    # Ждем появления поля (до 10 сек)')
+                code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=10000)')
+                code_lines.append(f'    await page.{selector_code}.fill(data_row["{var_name}"], timeout=5000)')
+                code_lines.append(f'    print(f"[OK] Введено {{data_row[\'{var_name}\']}}")')
+                code_lines.append(f'except Exception as e:')
+                code_lines.append(f'    print(f"[WARNING] Не удалось заполнить поле {var_name}: {{e}}")')
+                code_lines.append(f'    print("[INFO] Пропускаем поле и продолжаем...")')
                 code_lines.append('await page.wait_for_timeout(1000)  # Пауза 1 сек')
                 code_lines.append('')
                 var_index += 1
