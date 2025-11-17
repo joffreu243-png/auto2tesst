@@ -143,8 +143,8 @@ class PlaywrightParser:
         - page.getByPlaceholder('Enter email')
         - page.locator('#id')
         """
-        # getByRole
-        role_match = re.search(r"getByRole\(['\"](\w+)['\"](?:,\s*\{\s*name:\s*['\"](.+?)['\"]\s*\})?\)", line)
+        # get_by_role (Python style) - поддержка параметра name=
+        role_match = re.search(r"get_by_role\(['\"](\w+)['\"]\s*(?:,\s*name\s*=\s*['\"](.+?)['\"]\s*)?\)", line)
         if role_match:
             role = role_match.group(1)
             name = role_match.group(2) if role_match.group(2) else None
@@ -155,8 +155,8 @@ class PlaywrightParser:
                 'original': line
             }
 
-        # getByTestId
-        testid_match = re.search(r"getByTestId\(['\"](.+?)['\"]\)", line)
+        # get_by_test_id (Python style)
+        testid_match = re.search(r"get_by_test_id\(['\"](.+?)['\"]\)", line)
         if testid_match:
             return {
                 'type': 'testid',
@@ -164,8 +164,8 @@ class PlaywrightParser:
                 'original': line
             }
 
-        # getByText
-        text_match = re.search(r"getByText\(['\"](.+?)['\"]\)", line)
+        # get_by_text (Python style)
+        text_match = re.search(r"get_by_text\(['\"](.+?)['\"]\)", line)
         if text_match:
             return {
                 'type': 'text',
@@ -173,8 +173,8 @@ class PlaywrightParser:
                 'original': line
             }
 
-        # getByLabel
-        label_match = re.search(r"getByLabel\(['\"](.+?)['\"]\)", line)
+        # get_by_label (Python style)
+        label_match = re.search(r"get_by_label\(['\"](.+?)['\"]\)", line)
         if label_match:
             return {
                 'type': 'label',
@@ -182,12 +182,21 @@ class PlaywrightParser:
                 'original': line
             }
 
-        # getByPlaceholder
-        placeholder_match = re.search(r"getByPlaceholder\(['\"](.+?)['\"]\)", line)
+        # get_by_placeholder (Python style)
+        placeholder_match = re.search(r"get_by_placeholder\(['\"](.+?)['\"]\)", line)
         if placeholder_match:
             return {
                 'type': 'placeholder',
                 'value': placeholder_match.group(1),
+                'original': line
+            }
+
+        # filter(has_text=...) - извлечь текст из filter
+        filter_match = re.search(r"filter\(has_text\s*=\s*['\"](.+?)['\"]\)", line)
+        if filter_match:
+            return {
+                'type': 'filter_text',
+                'value': filter_match.group(1),
                 'original': line
             }
 
@@ -417,9 +426,24 @@ class PlaywrightParser:
             value = selector['value'].replace("'", "\\'")
             return f"get_by_placeholder('{value}')"
 
+        elif sel_type == 'filter_text':
+            value = selector['value'].replace("'", "\\'")
+            return f"filter(has_text='{value}')"
+
         elif sel_type == 'locator':
             value = selector['value'].replace("'", "\\'")
             return f"locator('{value}')"
+
+        elif sel_type == 'unknown':
+            # Если селектор неизвестен, вернуть оригинальную строку
+            original = selector.get('original', '')
+            # Попробуем извлечь хоть что-то полезное из оригинальной строки
+            if 'page.' in original:
+                # Извлечь часть после page.
+                match = re.search(r'page\.(.+?)(?:\.fill|\.click|\.type|\()', original)
+                if match:
+                    return match.group(1)
+            return "locator('body')"  # Последний fallback
 
         return "locator('body')"
 
