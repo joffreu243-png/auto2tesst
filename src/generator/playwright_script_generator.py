@@ -516,10 +516,9 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
 
         import traceback
         traceback.print_exc()
-        return False
 
-    finally:
-        # Закрыть браузер
+        # Закрыть браузер и профиль ТОЛЬКО при ошибке
+        print("[ERROR] Закрытие профиля из-за ошибки...")
         if browser:
             try:
                 await browser.close()
@@ -527,12 +526,14 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
             except:
                 pass
 
-        # Остановить профиль
         if profile_uuid:
             try:
                 stop_profile(profile_uuid)
+                print(f"[OK] Профиль {{profile_uuid}} остановлен")
             except:
                 pass
+
+        return False
 
 
 '''
