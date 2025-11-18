@@ -329,7 +329,7 @@ class OctobrowserScriptBuilder:
         # API Token
         ttk.Label(api_frame, text="API Token:").pack(anchor=tk.W)
         self.api_token_entry = ttk.Entry(api_frame, width=50)
-        self.api_token_entry.insert(0, self.config['octobrowser']['api_token'])
+        # Токен загружается через load_saved_settings(), не вставляем здесь
         self.api_token_entry.pack(fill=tk.X, pady=(0, 5))
 
         # Кнопки
@@ -610,10 +610,17 @@ Selenium:
         sms_frame = ttk.LabelFrame(scrollable_frame, text="📱 SMS сервисы (номера и OTP)", padding=10)
         sms_frame.pack(fill=tk.X, padx=5, pady=5)
 
+        # ПРЕДУПРЕЖДЕНИЕ для ветки network-parser
+        warning_label = ttk.Label(sms_frame,
+                                 text="⚠️ ОТКЛЮЧЕНО в ветке network-parser: работаем только со статическими данными из CSV",
+                                 foreground="red", font=('TkDefaultFont', 9, 'bold'))
+        warning_label.pack(anchor=tk.W, pady=(0, 5))
+
         self.use_sms_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(sms_frame, text="Использовать SMS сервис для получения номеров и OTP",
+        ttk.Checkbutton(sms_frame, text="Использовать SMS сервис для получения номеров и OTP (НЕДОСТУПНО)",
                        variable=self.use_sms_var,
-                       command=self.toggle_sms_options).pack(anchor=tk.W)
+                       command=self.toggle_sms_options,
+                       state="disabled").pack(anchor=tk.W)
 
         self.sms_options_frame = ttk.Frame(sms_frame)
         self.sms_options_frame.pack(fill=tk.X, padx=20, pady=5)
@@ -1377,7 +1384,8 @@ except Exception as e:
                     'use_proxy': 'proxy' in options.get('profile_config', {}),
                     'proxy': options.get('profile_config', {}).get('proxy', {}),
                     'csv_filename': Path(options.get('data_file_path', 'data.csv')).name if options.get('data_file_path') else 'data.csv',
-                    'use_sms': self.use_sms_var.get(),
+                    # ОТКЛЮЧЕНО для ветки network-parser: работаем только со статическими данными из CSV
+                    'use_sms': False,  # Было: self.use_sms_var.get()
                     'sms': {
                         'provider': self.sms_provider_var.get(),
                         'api_key': self.sms_api_key_entry.get().strip(),
