@@ -1842,20 +1842,21 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                 # ZIP всегда 33071 (Coral Springs, FL)
                 zip_code = "33071"
 
-                # === ИЗВЛЕЧЕНИЕ ИМЕНИ (первая строка, игнорируя адреса/числа) ===
-                lines = text.split('\n')
-                first_line = lines[0].strip()
+                # === ИЗВЛЕЧЕНИЕ ИМЕНИ (ищем строку только с буквами) ===
+                lines = [line.strip() for line in text.split('\n') if line.strip()]
+                first_name = "John"
+                last_name = "Doe"
 
-                # Удаляем всё после цифр (адреса, коды и т.д.)
-                # Разделяем по первому вхождению цифр, двоеточий, или больших чисел
-                name_part = re.split(r'\d{3,}|:', first_line)[0].strip()
+                # Ищем первую строку с именем (только буквы и пробелы, БЕЗ цифр)
+                for line in lines:
+                    # Удаляем все небуквенные символы, кроме пробелов
+                    clean_line = re.sub(r'[^a-zA-Z\s]', ' ', line).strip()
+                    words = [w for w in clean_line.split() if len(w) > 1]  # Слова длиннее 1 буквы
 
-                # Извлекаем слова (имя может быть из 2-3 частей)
-                name_words = [w for w in name_part.split() if w.strip() and not w.isdigit()]
-
-                # Имя: первое слово, Фамилия: последнее слово (пропускаем средний инициал)
-                first_name = name_words[0] if len(name_words) > 0 else "John"
-                last_name = name_words[-1] if len(name_words) > 1 else "Doe"
+                    if len(words) >= 2:
+                        first_name = words[0]
+                        last_name = words[-1]  # Последнее слово (пропускаем средний инициал)
+                        break
 
                 # === УМНЫЙ ПАРСИНГ ДАТЫ (множество форматов) ===
                 birth_month = None
@@ -1864,19 +1865,25 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
 
                 # Паттерны для поиска дат:
                 # 1. MM/DD/YYYY или MM-DD-YYYY (с разделителями)
-                date_with_sep = re.search(r'(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})', text)
+                date_with_sep = re.search(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b', text)
                 if date_with_sep:
-                    birth_month = date_with_sep.group(1).zfill(2)
-                    birth_day = date_with_sep.group(2).zfill(2)
-                    birth_year = date_with_sep.group(3)
-                else:
+                    mm = date_with_sep.group(1)
+                    dd = date_with_sep.group(2)
+                    yyyy = date_with_sep.group(3)
+                    # Проверяем валидность
+                    if 1 <= int(mm) <= 12 and 1 <= int(dd) <= 31:
+                        birth_month = mm.zfill(2)
+                        birth_day = dd.zfill(2)
+                        birth_year = yyyy
+
+                if not birth_month:
                     # 2. MMDDYYYY (8 цифр подряд, например: 01241986)
                     date_no_sep = re.search(r'\b(\d{2})(\d{2})(\d{4})\b', text)
                     if date_no_sep:
                         mm = date_no_sep.group(1)
                         dd = date_no_sep.group(2)
                         yyyy = date_no_sep.group(3)
-                        # Проверяем, что это похоже на дату
+                        # Проверяем валидность
                         if 1 <= int(mm) <= 12 and 1 <= int(dd) <= 31:
                             birth_month = mm
                             birth_day = dd
@@ -1888,7 +1895,7 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                     birth_day = str(random.randint(1, 28)).zfill(2)
                     birth_year = str(random.randint(1960, 2000))
 
-                # === ГЕНЕРАЦИЯ АДРЕСА (как в HTML генераторе) ===
+                # === ГЕНЕРАЦИЯ АДРЕСА (идентично HTML файлу) ===
                 streets = [
                     "Riverside Dr", "NW 14th St", "NW 110th Ave", "Forest Hills Blvd",
                     "Royal Palm Blvd", "W Atlantic Blvd", "Sample Rd", "Coral Springs Dr",
@@ -1898,7 +1905,7 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                 street_name = random.choice(streets)
                 address = f"{street_number} {street_name}"
 
-                # === ГЕНЕРАЦИЯ EMAIL (как в HTML генераторе) ===
+                # === ГЕНЕРАЦИЯ EMAIL (идентично HTML файлу) ===
                 email_domains = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "aol.com"]
                 domain = random.choice(email_domains)
                 fname_lower = first_name.lower()
@@ -1919,28 +1926,39 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                 subscriber = random.randint(1000, 9999)
                 phone = f"({area_code}) {exchange}-{subscriber}"
 
-                # Собираем строку для CSV (порядок зависит от headers)
+                # === УМНЫЙ МАППИНГ ПОЛЕЙ ===
+                # Собираем строку для CSV с учетом позиций и названий headers
                 headers = self.imported_data['csv_headers']
                 new_row = []
 
-                for header in headers:
-                    h_lower = header.lower()
-                    if 'zip' in h_lower or 'code' in h_lower:
+                for idx, header in enumerate(headers):
+                    h_lower = header.lower().strip()
+
+                    # ZIP только в первом поле (индекс 0)
+                    if idx == 0:
                         new_row.append(zip_code)
-                    elif 'month' in h_lower or h_lower == 'mm':
+                    # Месяц - второе поле или содержит "month"/"mm"
+                    elif idx == 1 or 'month' in h_lower or h_lower == 'mm':
                         new_row.append(birth_month)
-                    elif 'day' in h_lower or h_lower == 'dd':
+                    # День - третье поле или содержит "day"/"dd"
+                    elif idx == 2 or 'day' in h_lower or h_lower == 'dd':
                         new_row.append(birth_day)
-                    elif 'year' in h_lower or h_lower == 'yyyy':
+                    # Год - четвертое поле или содержит "year"/"yyyy"
+                    elif idx == 3 or 'year' in h_lower or h_lower == 'yyyy':
                         new_row.append(birth_year)
-                    elif 'first' in h_lower or 'fname' in h_lower:
+                    # Имя - пятое поле или содержит "first"/"fname"
+                    elif idx == 4 or 'first' in h_lower or 'fname' in h_lower:
                         new_row.append(first_name)
-                    elif 'last' in h_lower or 'lname' in h_lower:
+                    # Фамилия - шестое поле или содержит "last"/"lname"
+                    elif idx == 5 or 'last' in h_lower or 'lname' in h_lower:
                         new_row.append(last_name)
-                    elif 'address' in h_lower or 'street' in h_lower:
+                    # Адрес - седьмое поле или содержит "address"/"street"/"field"
+                    elif idx == 6 or 'address' in h_lower or 'street' in h_lower or 'field' in h_lower:
                         new_row.append(address)
+                    # Email - содержит "email"/"mail"
                     elif 'email' in h_lower or 'mail' in h_lower:
                         new_row.append(email)
+                    # Телефон - содержит "phone"/"tel"
                     elif 'phone' in h_lower or 'tel' in h_lower:
                         new_row.append(phone)
                     else:
