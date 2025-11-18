@@ -1984,6 +1984,18 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         quick_entry.bind('<Return>', parse_and_add_row)
         quick_entry.bind('<KP_Enter>', parse_and_add_row)
 
+        # Автоматическая очистка поля при вставке нового текста
+        def on_paste(event=None):
+            # Очищаем поле перед вставкой
+            quick_entry.delete(0, tk.END)
+            # Даём стандартной вставке выполниться
+            return None
+
+        # Привязываем к событию вставки (Ctrl+V / Cmd+V)
+        quick_entry.bind('<<Paste>>', on_paste)
+        quick_entry.bind('<Control-v>', on_paste)
+        quick_entry.bind('<Command-v>', on_paste)  # Для Mac
+
         # === ИНФОРМАЦИЯ (компактная) ===
         info_frame = ttk.Frame(editor_window)
         info_frame.pack(fill=tk.X, padx=10, pady=5)
