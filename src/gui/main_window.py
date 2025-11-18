@@ -1822,7 +1822,7 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         quick_add_frame.pack(fill=tk.X, padx=10, pady=5)
 
         hint_label = ttk.Label(quick_add_frame,
-                              text="💡 Вставьте данные: 33071,02,20,1993,Jazery,Vazquez,4919 NW 110th Ave,email@gmail.com,(954) 592-2218",
+                              text="💡 Вставьте имя и фамилию в любом формате (остальные данные сгенерируются автоматически)",
                               foreground="blue")
         hint_label.pack(anchor=tk.W, pady=(0, 5))
 
@@ -1830,48 +1830,68 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         quick_entry.pack(fill=tk.X, pady=(0, 5))
 
         def parse_and_add_row(event=None):
-            """Парсит вставленные данные и автоматически добавляет строку"""
+            """Парсит вставленные данные (любой формат) и автоматически генерирует остальные поля"""
+            import random
+
             text = quick_entry.get().strip()
             if not text:
                 return
 
             try:
-                # Парсинг CSV формата: zip,mm,dd,yyyy,fname,lname,address,email,phone
-                parts = [p.strip() for p in text.split(',')]
+                # ZIP всегда 33071 (Coral Springs, FL)
+                zip_code = "33071"
 
-                if len(parts) < 9:
-                    quick_entry.delete(0, tk.END)
-                    quick_entry.insert(0, "❌ Недостаточно данных (нужно 9 полей)")
-                    return
+                # Парсим входные данные - разделители могут быть любыми
+                text_normalized = text.replace(',', ' ').replace(';', ' ').replace('|', ' ')
+                parts = [p.strip() for p in text_normalized.split() if p.strip()]
 
-                # Извлекаем данные
-                zip_code = parts[0]
-                birth_month = parts[1]
-                birth_day = parts[2]
-                birth_year = parts[3]
-                first_name = parts[4]
-                last_name = parts[5]
-                # Адрес может содержать несколько частей
-                address_parts = []
-                email = ""
-                phone = ""
+                # Извлекаем имя и фамилию (первые два слова)
+                first_name = parts[0] if len(parts) > 0 else "John"
+                last_name = parts[1] if len(parts) > 1 else "Doe"
 
-                # Ищем email (содержит @)
-                email_index = -1
-                for i in range(6, len(parts)):
-                    if '@' in parts[i]:
-                        email_index = i
-                        email = parts[i]
-                        break
+                # Пытаемся найти числа для даты рождения
+                numbers = [p for p in parts if p.isdigit() and len(p) <= 4]
+                if len(numbers) >= 3:
+                    # Пытаемся определить формат даты
+                    birth_month = numbers[0] if int(numbers[0]) <= 12 else str(random.randint(1, 12)).zfill(2)
+                    birth_day = numbers[1] if int(numbers[1]) <= 31 else str(random.randint(1, 28)).zfill(2)
+                    birth_year = numbers[2] if len(numbers[2]) == 4 else str(random.randint(1960, 2000))
+                else:
+                    # Генерируем случайную дату
+                    birth_month = str(random.randint(1, 12)).zfill(2)
+                    birth_day = str(random.randint(1, 28)).zfill(2)
+                    birth_year = str(random.randint(1960, 2000))
 
-                # Адрес - все между last_name и email
-                if email_index > 6:
-                    address_parts = parts[6:email_index]
-                    address = ', '.join(address_parts)
+                # === ГЕНЕРАЦИЯ АДРЕСА (как в HTML генераторе) ===
+                streets = [
+                    "Riverside Dr", "NW 14th St", "NW 110th Ave", "Forest Hills Blvd",
+                    "Royal Palm Blvd", "W Atlantic Blvd", "Sample Rd", "Coral Springs Dr",
+                    "University Dr", "Wiles Rd", "Holmberg Rd", "Turtle Run Blvd"
+                ]
+                street_number = random.randint(100, 9999)
+                street_name = random.choice(streets)
+                address = f"{street_number} {street_name}"
 
-                # Телефон - последний элемент
-                if len(parts) > email_index + 1:
-                    phone = parts[email_index + 1]
+                # === ГЕНЕРАЦИЯ EMAIL (как в HTML генераторе) ===
+                email_domains = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "aol.com"]
+                domain = random.choice(email_domains)
+                fname_lower = first_name.lower()
+                lname_lower = last_name.lower()
+
+                email_formats = [
+                    f"{fname_lower}.{lname_lower}@{domain}",
+                    f"{fname_lower}{lname_lower}@{domain}",
+                    f"{fname_lower}_{lname_lower}@{domain}",
+                    f"{fname_lower}{random.randint(1, 999)}@{domain}",
+                    f"{fname_lower}.{lname_lower}{random.randint(1, 99)}@{domain}"
+                ]
+                email = random.choice(email_formats)
+
+                # === ГЕНЕРАЦИЯ ТЕЛЕФОНА (Florida area codes: 954, 754) ===
+                area_code = random.choice(["954", "754"])
+                exchange = random.randint(100, 999)
+                subscriber = random.randint(1000, 9999)
+                phone = f"({area_code}) {exchange}-{subscriber}"
 
                 # Собираем строку для CSV (порядок зависит от headers)
                 headers = self.imported_data['csv_headers']
