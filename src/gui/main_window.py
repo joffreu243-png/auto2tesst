@@ -1980,18 +1980,9 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                 quick_entry.delete(0, tk.END)
                 quick_entry.insert(0, f"❌ Ошибка: {str(e)}")
 
-        # Автоматическое добавление при вставке (Ctrl+V) или Enter
+        # Добавление строки по Enter
         quick_entry.bind('<Return>', parse_and_add_row)
         quick_entry.bind('<KP_Enter>', parse_and_add_row)
-
-        # Автоматический парсинг при изменении текста (после вставки)
-        def on_text_change(event=None):
-            text = quick_entry.get().strip()
-            # Если вставлен полный текст с запятыми, автоматически парсим
-            if ',' in text and len(text) > 20:
-                editor_window.after(100, parse_and_add_row)
-
-        quick_entry.bind('<KeyRelease>', on_text_change)
 
         # === ИНФОРМАЦИЯ (компактная) ===
         info_frame = ttk.Frame(editor_window)
