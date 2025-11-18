@@ -1814,23 +1814,127 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         # Создать окно редактора
         editor_window = tk.Toplevel(self.root)
         editor_window.title("📊 Редактирование данных для параметризации")
-        editor_window.geometry("1000x600")
+        editor_window.geometry("1200x700")
+        editor_window.minsize(1000, 600)
 
-        # Информация
-        info_frame = ttk.LabelFrame(editor_window, text="ℹ️ Информация", padding=10)
+        # === БЫСТРОЕ ДОБАВЛЕНИЕ ДАННЫХ ===
+        quick_add_frame = ttk.LabelFrame(editor_window, text="⚡ Быстрое добавление строки", padding=10)
+        quick_add_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        hint_label = ttk.Label(quick_add_frame,
+                              text="💡 Вставьте данные: 33071,02,20,1993,Jazery,Vazquez,4919 NW 110th Ave,email@gmail.com,(954) 592-2218",
+                              foreground="blue")
+        hint_label.pack(anchor=tk.W, pady=(0, 5))
+
+        quick_entry = ttk.Entry(quick_add_frame, width=100)
+        quick_entry.pack(fill=tk.X, pady=(0, 5))
+
+        def parse_and_add_row(event=None):
+            """Парсит вставленные данные и автоматически добавляет строку"""
+            text = quick_entry.get().strip()
+            if not text:
+                return
+
+            try:
+                # Парсинг CSV формата: zip,mm,dd,yyyy,fname,lname,address,email,phone
+                parts = [p.strip() for p in text.split(',')]
+
+                if len(parts) < 9:
+                    quick_entry.delete(0, tk.END)
+                    quick_entry.insert(0, "❌ Недостаточно данных (нужно 9 полей)")
+                    return
+
+                # Извлекаем данные
+                zip_code = parts[0]
+                birth_month = parts[1]
+                birth_day = parts[2]
+                birth_year = parts[3]
+                first_name = parts[4]
+                last_name = parts[5]
+                # Адрес может содержать несколько частей
+                address_parts = []
+                email = ""
+                phone = ""
+
+                # Ищем email (содержит @)
+                email_index = -1
+                for i in range(6, len(parts)):
+                    if '@' in parts[i]:
+                        email_index = i
+                        email = parts[i]
+                        break
+
+                # Адрес - все между last_name и email
+                if email_index > 6:
+                    address_parts = parts[6:email_index]
+                    address = ', '.join(address_parts)
+
+                # Телефон - последний элемент
+                if len(parts) > email_index + 1:
+                    phone = parts[email_index + 1]
+
+                # Собираем строку для CSV (порядок зависит от headers)
+                headers = self.imported_data['csv_headers']
+                new_row = []
+
+                for header in headers:
+                    h_lower = header.lower()
+                    if 'zip' in h_lower or 'code' in h_lower:
+                        new_row.append(zip_code)
+                    elif 'month' in h_lower or h_lower == 'mm':
+                        new_row.append(birth_month)
+                    elif 'day' in h_lower or h_lower == 'dd':
+                        new_row.append(birth_day)
+                    elif 'year' in h_lower or h_lower == 'yyyy':
+                        new_row.append(birth_year)
+                    elif 'first' in h_lower or 'fname' in h_lower:
+                        new_row.append(first_name)
+                    elif 'last' in h_lower or 'lname' in h_lower:
+                        new_row.append(last_name)
+                    elif 'address' in h_lower or 'street' in h_lower:
+                        new_row.append(address)
+                    elif 'email' in h_lower or 'mail' in h_lower:
+                        new_row.append(email)
+                    elif 'phone' in h_lower or 'tel' in h_lower:
+                        new_row.append(phone)
+                    else:
+                        # Для остальных полей - пустое значение
+                        new_row.append('')
+
+                # Добавляем в данные
+                self.csv_data_rows.append(new_row)
+                tree.insert('', tk.END, values=new_row)
+
+                # Очистить поле
+                quick_entry.delete(0, tk.END)
+                quick_entry.insert(0, f"✅ Добавлено: {first_name} {last_name}")
+
+                # Автоочистка через 1 секунду
+                editor_window.after(1000, lambda: quick_entry.delete(0, tk.END))
+
+            except Exception as e:
+                quick_entry.delete(0, tk.END)
+                quick_entry.insert(0, f"❌ Ошибка: {str(e)}")
+
+        # Автоматическое добавление при вставке (Ctrl+V) или Enter
+        quick_entry.bind('<Return>', parse_and_add_row)
+        quick_entry.bind('<KP_Enter>', parse_and_add_row)
+
+        # Автоматический парсинг при изменении текста (после вставки)
+        def on_text_change(event=None):
+            text = quick_entry.get().strip()
+            # Если вставлен полный текст с запятыми, автоматически парсим
+            if ',' in text and len(text) > 20:
+                editor_window.after(100, parse_and_add_row)
+
+        quick_entry.bind('<KeyRelease>', on_text_change)
+
+        # === ИНФОРМАЦИЯ (компактная) ===
+        info_frame = ttk.Frame(editor_window)
         info_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        info_text = f"""
-Извлечено значений: {len(self.imported_data['values'])}
-Найденные переменные: {', '.join(self.imported_data['csv_headers'])}
-
-Вы можете:
-• Редактировать значения в таблице
-• Добавить новые строки для мультизапуска
-• Сохранить CSV файл
-• Вставить конвертированный код в редактор
-        """
-        ttk.Label(info_frame, text=info_text, justify=tk.LEFT).pack()
+        info_text = f"📋 Извлечено полей: {len(self.imported_data['csv_headers'])} | Переменные: {', '.join(self.imported_data['csv_headers'])}"
+        ttk.Label(info_frame, text=info_text, foreground="gray").pack(anchor=tk.W)
 
         # Таблица данных
         table_frame = ttk.LabelFrame(editor_window, text="📋 Данные для CSV", padding=10)
@@ -1876,7 +1980,7 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
             """Редактировать выбранную строку"""
             selected = tree.selection()
             if not selected:
-                messagebox.showwarning("Предупреждение", "Выберите строку для редактирования")
+                # messagebox убран - просто выходим
                 return
 
             item = tree.item(selected[0])
@@ -1913,12 +2017,8 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         def delete_row():
             """Удалить выбранную строку"""
             selected = tree.selection()
-            if not selected:
-                messagebox.showwarning("Предупреждение", "Выберите строку для удаления")
-                return
-
-            if len(self.csv_data_rows) <= 1:
-                messagebox.showwarning("Предупреждение", "Должна остаться хотя бы одна строка")
+            if not selected or len(self.csv_data_rows) <= 1:
+                # messagebox убраны - просто выходим
                 return
 
             index = tree.index(selected[0])
@@ -1940,7 +2040,7 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                         writer.writerow(self.imported_data['csv_headers'])
                         writer.writerows(self.csv_data_rows)
 
-                    messagebox.showinfo("Успех", f"CSV файл сохранен:\n{file_path}")
+                    # messagebox убран - просто сохраняем
 
                     # Автоматически установить путь в параметризацию
                     self.use_parametrization_var.set(True)
@@ -1949,7 +2049,8 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                     self.csv_path_entry.insert(0, file_path)
 
                 except Exception as e:
-                    messagebox.showerror("Ошибка", f"Ошибка сохранения CSV:\n{str(e)}")
+                    # messagebox убран - просто игнорируем ошибку
+                    print(f"Ошибка сохранения CSV: {e}")
 
         def apply_to_editor():
             """Применить конвертированный код к редактору"""
@@ -1957,12 +2058,7 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
             self.code_editor.delete("1.0", tk.END)
             self.code_editor.insert("1.0", self.imported_data['converted_code'])
 
-            messagebox.showinfo("Успех",
-                              f"Код вставлен в редактор!\n\n"
-                              f"Параметры: {', '.join(self.imported_data['csv_headers'])}\n"
-                              f"Строк данных: {len(self.csv_data_rows)}\n\n"
-                              f"Сохраните CSV файл и включите параметризацию для мультизапуска.")
-
+            # messagebox убран - просто применяем и закрываем
             editor_window.destroy()
 
         ttk.Button(buttons_frame, text="➕ Добавить строку", command=add_row).pack(side=tk.LEFT, padx=2)
