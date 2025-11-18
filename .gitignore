@@ -40,6 +40,10 @@ generated_scripts/*.py
 !generated_scripts/.gitkeep
 config.json
 
+# Network Parser data
+data/network_responses_*.json
+data/test_data.csv
+
 # Logs
 *.log
 
