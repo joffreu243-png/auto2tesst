@@ -1830,8 +1830,9 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         quick_entry.pack(fill=tk.X, pady=(0, 5))
 
         def parse_and_add_row(event=None):
-            """Парсит вставленные данные (любой формат) и автоматически генерирует остальные поля"""
+            """Умный парсер: извлекает имя/дату из ЛЮБОГО формата, генерирует остальное"""
             import random
+            import re
 
             text = quick_entry.get().strip()
             if not text:
@@ -1841,23 +1842,48 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
                 # ZIP всегда 33071 (Coral Springs, FL)
                 zip_code = "33071"
 
-                # Парсим входные данные - разделители могут быть любыми
-                text_normalized = text.replace(',', ' ').replace(';', ' ').replace('|', ' ')
-                parts = [p.strip() for p in text_normalized.split() if p.strip()]
+                # === ИЗВЛЕЧЕНИЕ ИМЕНИ (первая строка, игнорируя адреса/числа) ===
+                lines = text.split('\n')
+                first_line = lines[0].strip()
 
-                # Извлекаем имя и фамилию (первые два слова)
-                first_name = parts[0] if len(parts) > 0 else "John"
-                last_name = parts[1] if len(parts) > 1 else "Doe"
+                # Удаляем всё после цифр (адреса, коды и т.д.)
+                # Разделяем по первому вхождению цифр, двоеточий, или больших чисел
+                name_part = re.split(r'\d{3,}|:', first_line)[0].strip()
 
-                # Пытаемся найти числа для даты рождения
-                numbers = [p for p in parts if p.isdigit() and len(p) <= 4]
-                if len(numbers) >= 3:
-                    # Пытаемся определить формат даты
-                    birth_month = numbers[0] if int(numbers[0]) <= 12 else str(random.randint(1, 12)).zfill(2)
-                    birth_day = numbers[1] if int(numbers[1]) <= 31 else str(random.randint(1, 28)).zfill(2)
-                    birth_year = numbers[2] if len(numbers[2]) == 4 else str(random.randint(1960, 2000))
+                # Извлекаем слова (имя может быть из 2-3 частей)
+                name_words = [w for w in name_part.split() if w.strip() and not w.isdigit()]
+
+                # Имя: первое слово, Фамилия: последнее слово (пропускаем средний инициал)
+                first_name = name_words[0] if len(name_words) > 0 else "John"
+                last_name = name_words[-1] if len(name_words) > 1 else "Doe"
+
+                # === УМНЫЙ ПАРСИНГ ДАТЫ (множество форматов) ===
+                birth_month = None
+                birth_day = None
+                birth_year = None
+
+                # Паттерны для поиска дат:
+                # 1. MM/DD/YYYY или MM-DD-YYYY (с разделителями)
+                date_with_sep = re.search(r'(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})', text)
+                if date_with_sep:
+                    birth_month = date_with_sep.group(1).zfill(2)
+                    birth_day = date_with_sep.group(2).zfill(2)
+                    birth_year = date_with_sep.group(3)
                 else:
-                    # Генерируем случайную дату
+                    # 2. MMDDYYYY (8 цифр подряд, например: 01241986)
+                    date_no_sep = re.search(r'\b(\d{2})(\d{2})(\d{4})\b', text)
+                    if date_no_sep:
+                        mm = date_no_sep.group(1)
+                        dd = date_no_sep.group(2)
+                        yyyy = date_no_sep.group(3)
+                        # Проверяем, что это похоже на дату
+                        if 1 <= int(mm) <= 12 and 1 <= int(dd) <= 31:
+                            birth_month = mm
+                            birth_day = dd
+                            birth_year = yyyy
+
+                # Если дата не найдена - генерируем случайную
+                if not birth_month:
                     birth_month = str(random.randint(1, 12)).zfill(2)
                     birth_day = str(random.randint(1, 28)).zfill(2)
                     birth_year = str(random.randint(1960, 2000))
