@@ -1499,45 +1499,24 @@ except Exception as e:
 
     def import_playwright_code(self):
         """Импортирует код Playwright теста"""
-        # Создать диалоговое окно
+        # Создать адаптивное диалоговое окно
         import_window = tk.Toplevel(self.root)
         import_window.title("🎭 Импорт Playwright кода")
-        import_window.geometry("900x700")
+        import_window.geometry("1000x700")
+        import_window.minsize(800, 600)
 
-        # Инструкция
-        instruction_frame = ttk.LabelFrame(import_window, text="📖 Инструкция", padding=10)
+        # Компактная инструкция
+        instruction_frame = ttk.Frame(import_window)
         instruction_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        instruction_text = """
-Вставьте код Playwright теста
+        instruction_text = "💡 Вставьте код Playwright теста (npx playwright codegen). Система автоматически извлечёт значения и создаст параметры для CSV."
+        ttk.Label(instruction_frame, text=instruction_text, justify=tk.LEFT, wraplength=950).pack(anchor=tk.W)
 
-КАК ПОЛУЧИТЬ КОД:
-1. Установите Playwright: npm install -D @playwright/test
-2. Запишите тест: npx playwright codegen https://example.com
-3. Скопируйте сгенерированный код
-4. Вставьте его ниже
-
-ПРИМЕР КОДА:
-import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  await page.goto('https://example.com/');
-  await page.getByRole('button', { name: 'Submit' }).click();
-  await page.getByLabel('Email').fill('test@example.com');
-});
-
-Система автоматически:
-✅ Извлечёт все вводимые значения (fill, type)
-✅ Создаст параметры для CSV
-✅ Сгенерирует код с подстановкой данных
-        """
-        ttk.Label(instruction_frame, text=instruction_text, justify=tk.LEFT).pack()
-
-        # Поле для ввода кода
+        # Поле для ввода кода (больше места)
         code_frame = ttk.LabelFrame(import_window, text="📝 Код Playwright теста", padding=10)
         code_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        code_text = scrolledtext.ScrolledText(code_frame, wrap=tk.WORD, width=80, height=25)
+        code_text = scrolledtext.ScrolledText(code_frame, wrap=tk.WORD)
         code_text.pack(fill=tk.BOTH, expand=True)
 
         # Кнопки
@@ -1566,8 +1545,10 @@ test('test', async ({ page }) => {
                 messagebox.showwarning("Предупреждение", "Вставьте код Playwright для импорта")
                 return
 
-            # Показать диалог для указания phone и OTP значений
-            self.show_field_hints_dialog(code, import_window)
+            # ОТКЛЮЧЕНО для ветки network-parser: не запрашиваем phone/OTP
+            # Парсим напрямую без подсказок
+            self.playwright_parser.set_manual_field_hints(phone_value=None, otp_value=None)
+            self.process_playwright_import(code, import_window)
 
         ttk.Button(buttons_frame, text="📋 Загрузить пример", command=load_example).pack(side=tk.LEFT, padx=2)
         ttk.Button(buttons_frame, text="✅ Импортировать", command=process_import,
@@ -1575,103 +1556,8 @@ test('test', async ({ page }) => {
         ttk.Button(buttons_frame, text="❌ Отмена",
                   command=import_window.destroy).pack(side=tk.LEFT, padx=2)
 
-    def show_field_hints_dialog(self, code: str, parent_window):
-        """
-        Показать диалог для указания значений phone и OTP
-
-        Args:
-            code: Код Playwright теста
-            parent_window: Родительское окно импорта
-        """
-        # Создать диалоговое окно
-        hints_dialog = tk.Toplevel(self.root)
-        hints_dialog.title("📱 Указание полей SMS")
-        hints_dialog.geometry("600x400")
-        hints_dialog.transient(self.root)
-        hints_dialog.grab_set()
-
-        # Инструкция
-        instruction = ttk.LabelFrame(hints_dialog, text="📖 Инструкция", padding=10)
-        instruction.pack(fill=tk.X, padx=10, pady=10)
-
-        instruction_text = """
-Чтобы система правильно определила поля НОМЕР ТЕЛЕФОНА и OTP КОД,
-укажите их значения ИЗ ВАШЕГО КОДА:
-
-1. Найдите в коде строку с номером телефона (например: fill("8434756290"))
-2. Скопируйте ЗНАЧЕНИЕ номера: 8434756290
-3. Вставьте в поле "Номер телефона"
-
-4. Найдите в коде строку с OTP кодом (например: fill("3131323"))
-5. Скопируйте ЗНАЧЕНИЕ OTP: 3131323
-6. Вставьте в поле "OTP код"
-
-Система найдет эти значения в коде и пометит их как phone_number и otp_code.
-
-⚠️ ВАЖНО: Укажите ТОЧНОЕ значение как в коде (с кавычками или без)
-        """
-
-        ttk.Label(instruction, text=instruction_text, justify=tk.LEFT, wraplength=550).pack()
-
-        # Поля ввода
-        fields_frame = ttk.LabelFrame(hints_dialog, text="🔢 Значения из кода", padding=10)
-        fields_frame.pack(fill=tk.X, padx=10, pady=10)
-
-        # Поле для номера телефона
-        phone_frame = ttk.Frame(fields_frame)
-        phone_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(phone_frame, text="📱 Номер телефона (например: 8434756290):", width=40).pack(side=tk.LEFT)
-        phone_entry = ttk.Entry(phone_frame, width=30)
-        phone_entry.pack(side=tk.LEFT, padx=5)
-
-        # Поле для OTP
-        otp_frame = ttk.Frame(fields_frame)
-        otp_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(otp_frame, text="🔢 OTP код (например: 3131323):", width=40).pack(side=tk.LEFT)
-        otp_entry = ttk.Entry(otp_frame, width=30)
-        otp_entry.pack(side=tk.LEFT, padx=5)
-
-        # Чекбокс для пропуска
-        skip_var = tk.BooleanVar(value=False)
-        skip_frame = ttk.Frame(fields_frame)
-        skip_frame.pack(fill=tk.X, pady=10)
-        ttk.Checkbutton(skip_frame, text="⏭️ Пропустить (автоматическое определение)",
-                       variable=skip_var).pack(anchor=tk.W)
-
-        # Кнопки
-        buttons_frame = ttk.Frame(hints_dialog)
-        buttons_frame.pack(fill=tk.X, padx=10, pady=10)
-
-        def apply_hints():
-            phone_value = phone_entry.get().strip()
-            otp_value = otp_entry.get().strip()
-
-            # Если пропустить - не устанавливать подсказки
-            if skip_var.get():
-                phone_value = None
-                otp_value = None
-                print("[GUI] Ручные подсказки пропущены - будет автоматическое определение")
-            else:
-                # Проверить что хотя бы одно значение указано
-                if not phone_value and not otp_value:
-                    messagebox.showwarning("Предупреждение",
-                                          "Укажите хотя бы одно значение\n"
-                                          "или выберите 'Пропустить'")
-                    return
-
-            # Установить подсказки в парсер
-            self.playwright_parser.set_manual_field_hints(phone_value=phone_value, otp_value=otp_value)
-
-            # Закрыть диалог
-            hints_dialog.destroy()
-
-            # Продолжить импорт
-            self.process_playwright_import(code, parent_window)
-
-        ttk.Button(buttons_frame, text="✅ Применить", command=apply_hints,
-                  style="Accent.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(buttons_frame, text="❌ Отмена",
-                  command=lambda: [hints_dialog.destroy(), parent_window.destroy()]).pack(side=tk.LEFT, padx=2)
+    # УДАЛЕНО: show_field_hints_dialog - не нужна в ветке network-parser
+    # Работаем только со статическими данными из CSV, phone/OTP не запрашиваются
 
     def process_playwright_import(self, code: str, import_window):
         """
