@@ -29,7 +29,12 @@ class OctobrowserScriptBuilder:
     def __init__(self, root):
         self.root = root
         self.root.title("Octobrowser Script Builder - Конструктор скриптов автоматизации")
-        self.root.geometry("1200x800")
+
+        # Увеличенное окно для удобства
+        self.root.geometry("1400x900")
+
+        # Минимальный размер окна
+        self.root.minsize(1200, 700)
 
         # Загрузка конфигурации
         self.load_config()
@@ -280,17 +285,17 @@ class OctobrowserScriptBuilder:
         help_menu.add_separator()
         help_menu.add_command(label="О программе", command=self.show_about)
 
-        # Главный контейнер
+        # Главный контейнер с улучшенными пропорциями
         main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Левая панель - настройки
-        left_panel = ttk.Frame(main_container, width=400)
+        # Левая панель - настройки (минимум 380px, оптимально 450px)
+        left_panel = ttk.Frame(main_container, width=450)
         main_container.add(left_panel, weight=1)
 
-        # Правая панель - код и вывод
+        # Правая панель - код и вывод (больше места для редактора)
         right_panel = ttk.Frame(main_container)
-        main_container.add(right_panel, weight=2)
+        main_container.add(right_panel, weight=3)
 
         # === ЛЕВАЯ ПАНЕЛЬ ===
         self.create_left_panel(left_panel)
@@ -301,7 +306,7 @@ class OctobrowserScriptBuilder:
     def create_left_panel(self, parent):
         """Создание левой панели с настройками"""
         # Canvas для прокрутки
-        canvas = tk.Canvas(parent)
+        canvas = tk.Canvas(parent, highlightthickness=0)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
@@ -312,6 +317,26 @@ class OctobrowserScriptBuilder:
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
+
+        # ИСПРАВЛЕНИЕ: Добавляем прокрутку колесом мыши
+        def on_mousewheel(event):
+            """Обработка прокрутки колесом мыши"""
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def on_mousewheel_linux(event):
+            """Обработка прокрутки для Linux"""
+            if event.num == 4:
+                canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(1, "units")
+
+        # Привязываем события прокрутки
+        canvas.bind_all("<MouseWheel>", on_mousewheel)  # Windows/MacOS
+        canvas.bind_all("<Button-4>", on_mousewheel_linux)  # Linux scroll up
+        canvas.bind_all("<Button-5>", on_mousewheel_linux)  # Linux scroll down
+
+        # Сохраняем canvas для отвязки событий при закрытии
+        self.left_panel_canvas = canvas
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -695,13 +720,17 @@ Selenium:
 
     def create_right_panel(self, parent):
         """Создание правой панели с кодом"""
-        # Верхняя часть - редактор кода
-        code_frame = ttk.LabelFrame(parent, text="📝 Код автоматизации (ваш код)", padding=10)
-        code_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Используем PanedWindow для регулируемых пропорций между редактором и выводом
+        right_paned = ttk.PanedWindow(parent, orient=tk.VERTICAL)
+        right_paned.pack(fill=tk.BOTH, expand=True)
+
+        # Верхняя часть - редактор кода (больше места)
+        code_frame = ttk.LabelFrame(right_paned, text="📝 Код автоматизации (ваш код)", padding=10)
+        right_paned.add(code_frame, weight=2)
 
         ttk.Label(code_frame, text="Введите ваш код автоматизации (будет выполняться в контексте driver):").pack(anchor=tk.W)
 
-        self.code_editor = scrolledtext.ScrolledText(code_frame, height=15, wrap=tk.WORD,
+        self.code_editor = scrolledtext.ScrolledText(code_frame, wrap=tk.WORD,
                                                      font=("Consolas", 10))
         self.code_editor.pack(fill=tk.BOTH, expand=True, pady=5)
 
@@ -741,8 +770,8 @@ except Exception as e:
         self.code_editor.insert("1.0", example_code)
 
         # Кнопки управления
-        buttons_frame = ttk.Frame(parent)
-        buttons_frame.pack(fill=tk.X, padx=5, pady=5)
+        buttons_frame = ttk.Frame(code_frame)
+        buttons_frame.pack(fill=tk.X, pady=(5, 0))
 
         ttk.Button(buttons_frame, text="🎭 Импорт Playwright",
                   command=self.import_playwright_code, style="Accent.TButton").pack(side=tk.LEFT, padx=2)
@@ -759,11 +788,11 @@ except Exception as e:
         ttk.Button(buttons_frame, text="⏹️ Остановить",
                   command=self.stop_script).pack(side=tk.LEFT, padx=2)
 
-        # Нижняя часть - вывод
-        output_frame = ttk.LabelFrame(parent, text="📊 Вывод выполнения", padding=10)
-        output_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Нижняя часть - вывод (меньше места, регулируется разделителем)
+        output_frame = ttk.LabelFrame(right_paned, text="📊 Вывод выполнения", padding=10)
+        right_paned.add(output_frame, weight=1)
 
-        self.output_text = scrolledtext.ScrolledText(output_frame, height=10, wrap=tk.WORD,
+        self.output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD,
                                                      font=("Consolas", 9), background="#1e1e1e",
                                                      foreground="#ffffff")
         self.output_text.pack(fill=tk.BOTH, expand=True)
