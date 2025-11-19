@@ -51,16 +51,15 @@ class PlaywrightScriptGenerator:
         return '''#!/usr/bin/env python3
 """
 Автоматически сгенерированный скрипт автоматизации
-Фреймворк: Playwright
+Фреймворк: Playwright (SYNC API)
 Браузер: Octobrowser (через CDP)
 """
 
-import asyncio
 import csv
 import time
 import random
 import requests
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright, Playwright, expect
 from typing import Dict, List, Optional
 
 '''
@@ -546,12 +545,12 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
             return False
 
         # Подключиться к браузеру через CDP
-        async with async_playwright() as p:
+        with sync_playwright() as p:
             cdp_url = f"http://127.0.0.1:{{debug_port}}"
             print(f"[CDP MODE] Подключение к Octobrowser через CDP: {{cdp_url}}")
 
             try:
-                browser = await p.chromium.connect_over_cdp(cdp_url)
+                browser = p.chromium.connect_over_cdp(cdp_url)
                 print("[OK] Playwright подключен к Octobrowser")
             except Exception as e:
                 print(f"[ERROR] Не удалось подключиться к CDP: {{e}}")
@@ -563,7 +562,7 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
                 if context.pages:
                     page = context.pages[0]
                 else:
-                    page = await context.new_page()
+                    page = context.new_page()
             else:
                 print("[ERROR] Нет доступных контекстов браузера")
                 return False
@@ -585,7 +584,7 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
 # ГЛАВНАЯ ФУНКЦИЯ ИТЕРАЦИИ
 # ============================================================
 
-async def run_automation_iteration(iteration_number: int, data_row: Dict):
+def run_automation_iteration(iteration_number: int, data_row: Dict):
     """
     Запуск одной итерации автоматизации с Playwright
 
@@ -646,7 +645,7 @@ async def run_automation_iteration(iteration_number: int, data_row: Dict):
 # ГЛАВНАЯ ФУНКЦИЯ
 # ============================================================
 
-async def main():
+def main():
     """Главная функция с мультизапуском"""
     try:
         # Загрузить данные из CSV
@@ -665,7 +664,7 @@ async def main():
 
         # Запуск для каждой строки
         for i, data_row in enumerate(data_rows, start=1):
-            success = await run_automation_iteration(i, data_row)
+            success = run_automation_iteration(i, data_row)
 
             if success:
                 successful_iterations += 1
@@ -676,7 +675,7 @@ async def main():
             if i < total_iterations:
                 pause_seconds = 5
                 print(f"\\nПауза {pause_seconds} секунд перед следующей итерацией...")
-                await asyncio.sleep(pause_seconds)
+                time.sleep(pause_seconds)
 
         # Итоговая статистика
         print("\\n" + "="*60)
@@ -696,9 +695,9 @@ async def main():
 
 if __name__ == "__main__":
     print("="*60)
-    print("Octobrowser Automation Script (Playwright)")
+    print("Octobrowser Automation Script (Playwright SYNC)")
     print("="*60)
-    asyncio.run(main())
+    main()
 '''
 
 

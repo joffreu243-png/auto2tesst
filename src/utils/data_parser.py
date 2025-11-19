@@ -304,15 +304,22 @@ class SmartDataParser:
         """
         fields = []
 
-        # Паттерн для .fill("value")
-        fill_pattern = r'\.fill\(["\'](.+?)["\']\)'
+        # Паттерн для .fill("value") или .fill('value')
+        # Улучшенный паттерн для любых .fill() вызовов
+        fill_pattern = r'\.fill\(["\']([^"\']+)["\']\)'
 
-        # Паттерн для селектора + контекста
-        selector_pattern = r'(page|[\w]+)\.(?:get_by_label|get_by_placeholder|locator|get_by_role)\(["\'](.+?)["\']\)(?:\.\w+\([^\)]*\))*\.fill\(["\'](.+?)["\']\)'
+        # Расширенный паттерн для селектора + контекста
+        # Поддержка: get_by_label, get_by_placeholder, locator, get_by_role, get_by_test_id
+        selector_pattern = r'(page|[\w]+)\.(?:get_by_label|get_by_placeholder|locator|get_by_role|get_by_test_id|get_by_text)\(["\']([^"\']+?)["\']\)(?:\.\w+\([^\)]*\))*\.fill\(["\']([^"\']+)["\']\)'
 
         lines = code.split('\n')
 
         for i, line in enumerate(lines):
+            # Пропустить комментарии и пустые строки
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith('#'):
+                continue
+
             # Попытка найти с контекстом
             match = re.search(selector_pattern, line)
             if match:
@@ -347,10 +354,15 @@ class SmartDataParser:
                     'smart_answer': smart_answer
                 })
             else:
-                # Простой .fill()
+                # Простой .fill() - FALLBACK для любых случаев
                 match = re.search(fill_pattern, line)
                 if match:
                     value = match.group(1)
+
+                    # Пропустить пустые значения
+                    if not value or value.strip() == '':
+                        continue
+
                     field_type = self.detect_field_type(value)
 
                     fields.append({
@@ -378,11 +390,14 @@ class SmartDataParser:
         """
         # Создать заголовки
         headers = []
+        field_counter = 1
         for field in fields:
             if field['selector'] != 'unknown':
                 header = field['selector'].replace('"', '').replace("'", '')
             else:
-                header = field['type']
+                # Fallback: создать "Field N" если селектор неизвестен
+                header = f"Field {field_counter}"
+                field_counter += 1
             headers.append(header)
 
         # Генерировать строки
