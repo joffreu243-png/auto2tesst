@@ -91,7 +91,11 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         )
         # 🔥 ПРАВИЛЬНЫЙ Base URL с /automation согласно официальной документации
         # https://documenter.getpostman.com/view/1801428/UVC6i6eA
-        self.base_url_entry.insert(0, "https://app.octobrowser.net/api/v2/automation")
+        # Загружаем сохраненный URL или используем default
+        saved_base_url = self.config.get('octobrowser', {}).get('api_base_url', '')
+        if not saved_base_url:
+            saved_base_url = "https://app.octobrowser.net/api/v2/automation"
+        self.base_url_entry.insert(0, saved_base_url)
         self.base_url_entry.pack(fill="x", padx=16, pady=(0, 8))
 
         test_btn = ctk.CTkButton(
@@ -415,6 +419,8 @@ class OctoAPITab(ctk.CTkScrollableFrame):
                 print("[DEBUG] Успех! Показываю success toast")  # DEBUG
                 if self.toast:
                     self.toast.success("✅ Octo API подключён успешно!")
+                # Автосохранение после успешного подключения
+                self.save_settings()
             elif response.status_code == 401:
                 print("[DEBUG] 401 Unauthorized")  # DEBUG
                 if self.toast:

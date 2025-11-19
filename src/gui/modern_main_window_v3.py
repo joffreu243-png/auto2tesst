@@ -337,18 +337,29 @@ class ModernAppV3(ctk.CTk):
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
         btn_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=24)
         btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+
+        # 🔥 НОВАЯ КНОПКА: Generate Script
+        ctk.CTkButton(
+            btn_frame,
+            text="⚙️ GENERATE",
+            command=self.generate_playwright_script,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_primary'],
+            font=(ModernTheme.FONT['family'], 14, 'bold')
+        ).grid(row=0, column=0, padx=8, sticky="ew")
 
         self.run_btn = ctk.CTkButton(
             btn_frame,
-            text="▶️ RUN SCRIPT",
+            text="▶️ RUN",
             command=self.start_script,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_success'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
         )
-        self.run_btn.grid(row=0, column=0, padx=8, sticky="ew")
+        self.run_btn.grid(row=0, column=1, padx=8, sticky="ew")
 
         self.stop_btn = ctk.CTkButton(
             btn_frame,
@@ -360,27 +371,27 @@ class ModernAppV3(ctk.CTk):
             state="disabled",
             font=(ModernTheme.FONT['family'], 14, 'bold')
         )
-        self.stop_btn.grid(row=0, column=1, padx=8, sticky="ew")
+        self.stop_btn.grid(row=0, column=2, padx=8, sticky="ew")
 
         ctk.CTkButton(
             btn_frame,
-            text="💾 Save Script",
+            text="💾 SAVE",
             command=self.save_script,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_info'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=2, padx=8, sticky="ew")
+        ).grid(row=0, column=3, padx=8, sticky="ew")
 
         ctk.CTkButton(
             btn_frame,
-            text="🔄 Reload",
+            text="🔄 RELOAD",
             command=self.reload_script,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_secondary'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=3, padx=8, sticky="ew")
+        ).grid(row=0, column=4, padx=8, sticky="ew")
 
         # Code editor
         editor_container = ctk.CTkFrame(
@@ -626,14 +637,81 @@ class ModernAppV3(ctk.CTk):
         self.auto_parse_data(code)
 
     # ========================================================================
+    # ГЕНЕРАЦИЯ СКРИПТА
+    # ========================================================================
+
+    def generate_playwright_script(self):
+        """Генерация Playwright скрипта"""
+        print("[DEBUG] generate_playwright_script() вызван")  # DEBUG
+
+        try:
+            # Собрать конфигурацию из всех табов
+            config = {
+                'api_token': self.config.get('octobrowser', {}).get('api_token', ''),
+                'csv_filename': self.config.get('ui_settings', {}).get('last_csv_path', 'data.csv'),
+                'target': 'library',  # По умолчанию library mode
+                'use_proxy': self.config.get('proxy', {}).get('enabled', False),
+                'proxy': self.config.get('proxy', {}),
+                'use_sms': False,  # Пока отключено
+                'sms': self.config.get('sms', {})
+            }
+
+            print(f"[DEBUG] API Token: {config['api_token'][:10]}..." if config['api_token'] else "[DEBUG] API Token: пуст")  # DEBUG
+
+            # Проверка токена
+            if not config['api_token']:
+                self.toast.warning("⚠️ Введите API Token во вкладке Octo API")
+                return
+
+            # Получить пользовательский код из редактора или использовать placeholder
+            user_code = self.code_editor.get("1.0", "end-1c").strip()
+            if not user_code:
+                # Если редактор пуст, используем placeholder код
+                user_code = '''    # ==== ВАШ КОД АВТОМАТИЗАЦИИ ЗДЕСЬ ====
+    # Примеры:
+    # page.goto("https://example.com")
+    # page.fill("#username", "myuser")
+    # page.click("button[type='submit']")
+    # page.wait_for_load_state("networkidle")
+
+    print(f"[ITERATION {iteration_number}] Начало автоматизации")
+    page.goto("https://example.com")
+    print(f"[SUCCESS] Страница загружена")
+'''
+
+            print(f"[DEBUG] Длина user_code: {len(user_code)} символов")  # DEBUG
+
+            # Генерация скрипта
+            self.append_log("[INFO] Генерация Playwright скрипта...", "INFO")
+            generated_script = self.playwright_generator.generate_script(user_code, config)
+
+            # Вставить в редактор
+            self.code_editor.delete("1.0", "end")
+            self.code_editor.insert("1.0", generated_script)
+
+            self.append_log("[SUCCESS] ✅ Скрипт сгенерирован успешно!", "SUCCESS")
+            self.toast.success("✅ Playwright скрипт сгенерирован!")
+
+        except Exception as e:
+            print(f"[DEBUG] Ошибка генерации: {e}")  # DEBUG
+            import traceback
+            traceback.print_exc()  # DEBUG
+            self.toast.error(f"❌ Ошибка генерации: {e}")
+            self.append_log(f"[ERROR] {e}", "ERROR")
+
+    # ========================================================================
     # ЗАПУСК СКРИПТА
     # ========================================================================
 
     def start_script(self):
         """Запуск скрипта"""
+        print("[DEBUG] start_script() вызван")  # DEBUG
         code = self.code_editor.get("1.0", "end-1c").strip()
+        print(f"[DEBUG] Длина кода в редакторе: {len(code)} символов")  # DEBUG
+
         if not code:
-            self.toast.error("Редактор пуст!")
+            print("[DEBUG] Редактор пуст! Нужно сгенерировать скрипт")  # DEBUG
+            self.toast.error("⚠️ Редактор пуст! Сначала напишите код или сгенерируйте скрипт")
             return
 
         try:
