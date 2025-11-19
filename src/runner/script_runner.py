@@ -69,6 +69,8 @@ class ScriptRunner:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding='utf-8',  # 🔥 Явно указываем UTF-8 для Windows
+                errors='replace',  # Заменять неподдерживаемые символы вместо краша
                 bufsize=1,
                 universal_newlines=True
             )

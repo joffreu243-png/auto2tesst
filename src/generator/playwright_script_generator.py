@@ -53,6 +53,7 @@ class PlaywrightScriptGenerator:
     def _generate_imports(self) -> str:
         """Генерирует импорты"""
         return '''#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Автоматически сгенерированный скрипт автоматизации
 Фреймворк: Playwright (SYNC API)
@@ -278,7 +279,7 @@ def check_local_api() -> bool:
         response = requests.get(f"{{LOCAL_API_URL}}/profiles", timeout=2)
 
         if response.status_code in [200, 401, 403]:  # Любой ответ = API работает
-            print("[OK] ✅ Local API доступен (Octobrowser запущен)")
+            print("[OK] Local API доступен (Octobrowser запущен)")
             return True
         else:
             print(f"[WARNING] Local API вернул неожиданный статус: {{response.status_code}}")
@@ -286,7 +287,7 @@ def check_local_api() -> bool:
 
     except requests.exceptions.ConnectionError:
         print("\\n" + "="*60)
-        print("❌ КРИТИЧЕСКАЯ ОШИБКА: OCTOBROWSER НЕ ЗАПУЩЕН!")
+        print("[CRITICAL ERROR] OCTOBROWSER НЕ ЗАПУЩЕН!")
         print("="*60)
         print("")
         print("Local API недоступен на http://localhost:58888/api")
@@ -518,7 +519,7 @@ def load_data_from_csv(filename: str = None) -> List[Dict]:
         # 🔥 Режим 1: Встроенные данные (CSV уже в скрипте)
         if CSV_EMBED_MODE:
             data_rows = CSV_DATA
-            print(f"[OK] ✅ Используются встроенные CSV данные")
+            print(f"[OK] Используются встроенные CSV данные")
             print(f"Загружено {len(data_rows)} строк данных")
             return data_rows
 
@@ -562,7 +563,7 @@ def update_csv_row(filename: str = None, row_index: int = 0, phone_number: Optio
     try:
         # 🔥 Режим 1: Встроенные данные - обновление невозможно
         if CSV_EMBED_MODE:
-            print(f"[CSV] ⚠️ Режим встроенных данных - запись в CSV пропущена")
+            print(f"[CSV] Режим встроенных данных - запись в CSV пропущена")
             return
         # Читаем весь CSV
         rows = []
