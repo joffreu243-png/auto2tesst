@@ -222,6 +222,10 @@ class ToastManager:
             self.container.place(x=x or 20, y=y or 20, anchor=anchor or "se")
             print(f"[TOAST DEBUG] Контейнер размещён: place(x={x or 20}, y={y or 20}, anchor={anchor or 'se'})")  # DEBUG
 
+        # 🔥 ИСПРАВЛЕНИЕ: Поднять контейнер поверх всех виджетов
+        self.container.lift()
+        print(f"[TOAST DEBUG] Контейнер поднят: lift()")  # DEBUG
+
         # Проверка размещения
         self.container.update_idletasks()
         print(f"[TOAST DEBUG] Контейнер после update_idletasks():")  # DEBUG
@@ -263,15 +267,22 @@ class ToastManager:
         print(f"[TOAST DEBUG] Вызываю _reposition_toasts()")  # DEBUG
         self._reposition_toasts()
 
-        # Обновить геометрию
+        # 🔥 ИСПРАВЛЕНИЕ: Поднять контейнер поверх всех виджетов после добавления toast
+        self.container.lift()
+        print(f"[TOAST DEBUG] Контейнер поднят после добавления toast")  # DEBUG
+
+        # Обновить геометрию и принудительно обновить окно
         self.container.update_idletasks()
+        self.parent.update()  # Принудительное обновление окна
         print(f"[TOAST DEBUG] После размещения toast:")  # DEBUG
         print(f"[TOAST DEBUG]   container.winfo_width={self.container.winfo_width()}")  # DEBUG
         print(f"[TOAST DEBUG]   container.winfo_height={self.container.winfo_height()}")  # DEBUG
         print(f"[TOAST DEBUG]   container.winfo_ismapped={self.container.winfo_ismapped()}")  # DEBUG
+        print(f"[TOAST DEBUG]   container.winfo_viewable={self.container.winfo_viewable()}")  # DEBUG
         print(f"[TOAST DEBUG]   toast.winfo_width={toast.winfo_width()}")  # DEBUG
         print(f"[TOAST DEBUG]   toast.winfo_height={toast.winfo_height()}")  # DEBUG
         print(f"[TOAST DEBUG]   toast.winfo_ismapped={toast.winfo_ismapped()}")  # DEBUG
+        print(f"[TOAST DEBUG]   toast.winfo_viewable={toast.winfo_viewable()}")  # DEBUG
 
         print(f"[TOAST DEBUG] show() завершён, toast должен быть виден!")  # DEBUG
 
