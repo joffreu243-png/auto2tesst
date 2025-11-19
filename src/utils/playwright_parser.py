@@ -459,6 +459,23 @@ class PlaywrightParser:
         code_lines.append('# === END SMART BUTTON HANDLER ===')
         code_lines.append('')
 
+        # === SMART QUESTION-ANSWER HANDLER ADDED ===
+        code_lines.append('# === SMART QUESTION-ANSWER HANDLER ===')
+        code_lines.append('# Функция для устойчивого ответа на вопросы (клик по heading → ответ на button)')
+        code_lines.append('async def answer_question(heading: str, answer_button: str, exact: bool = False):')
+        code_lines.append('    """Ждёт появления вопроса (heading) и кликает по кнопке ответа"""')
+        code_lines.append('    print(f"[ANSWER] Жду вопрос: {heading}")')
+        code_lines.append('    heading_locator = page.get_by_role("heading", name=heading, exact=True)')
+        code_lines.append('    try:')
+        code_lines.append('        await heading_locator.wait_for(state="visible", timeout=35000)')
+        code_lines.append('        print(f"[ANSWER] Вопрос появился: {heading} → отвечаю: {answer_button}")')
+        code_lines.append('        await smart_click_button(answer_button, exact=exact)')
+        code_lines.append('    except Exception as e:')
+        code_lines.append('        print(f"[ANSWER] Вопрос \'{heading}\' не появился за 35 сек: {e}")')
+        code_lines.append('')
+        code_lines.append('# === END SMART QUESTION-ANSWER HANDLER ===')
+        code_lines.append('')
+
         for action in actions:
             if action['type'] == 'goto':
                 code_lines.append(f'# Переход на страницу')
@@ -654,7 +671,180 @@ class PlaywrightParser:
 
         # === SMART BUTTON HANDLER ADDED ===
         # Трансформация теперь происходит на этапе генерации, пост-обработка не нужна
-        return '\n'.join(code_lines)
+        converted_code = '\n'.join(code_lines)
+
+        # === SMART QUESTION-ANSWER HANDLER ADDED ===
+        # Пост-обработка: найти пары heading→button и заменить на answer_question
+        converted_code = self._transform_heading_button_pairs(converted_code)
+
+        return converted_code
+
+    def _transform_heading_button_pairs(self, code: str) -> str:
+        """
+        === SMART QUESTION-ANSWER HANDLER ADDED ===
+        Находит пары: клик по heading → клик по button (smart_click_button)
+        Заменяет их на один вызов answer_question()
+
+        Правила:
+        1. Ищет клик по get_by_role("heading", name="...")
+        2. Проверяет следующие 0-3 "действия"
+        3. Если находит await smart_click_button(...) - это пара
+        4. НЕ трогает если между ними есть fill()
+        5. Заменяет оба на await answer_question(heading_text, button_text, exact=...)
+        """
+        lines = code.split('\n')
+        i = 0
+        skip_until = -1  # Индекс до которого нужно пропускать строки
+
+        result_lines = []
+
+        while i < len(lines):
+            # Пропустить строки, которые являются частью замененной пары
+            if i <= skip_until:
+                i += 1
+                continue
+
+            line = lines[i]
+
+            # Проверить, начинается ли блок клика по heading (комментарий "# Клик по элементу")
+            if line.strip().startswith('# Клик по элементу'):
+                # Проверить следующие строки на наличие heading click
+                heading_click_idx = self._find_heading_click_in_block(lines, i)
+
+                if heading_click_idx != -1:
+                    # Нашли клик по heading
+                    heading_text = self._extract_heading_text(lines[heading_click_idx])
+
+                    if heading_text:
+                        # Найти конец блока клика
+                        block_end = self._find_click_block_end(lines, heading_click_idx)
+
+                        # Искать smart_click_button после блока
+                        search_start = block_end + 1
+                        button_info = self._find_next_smart_click_button(lines, search_start, max_distance=20)
+
+                        if button_info:
+                            button_line_idx, button_text, exact = button_info
+
+                            # Проверить что между ними нет fill()
+                            has_fill = self._has_fill_between(lines, block_end, button_line_idx)
+
+                            if not has_fill:
+                                # ПАРА НАЙДЕНА! Заменяем оба блока на answer_question
+
+                                # Найти комментарий перед smart_click_button (если есть)
+                                smart_click_end = button_line_idx
+                                # Пропустить пустую строку после smart_click_button
+                                if button_line_idx + 1 < len(lines) and not lines[button_line_idx + 1].strip():
+                                    smart_click_end = button_line_idx + 1
+
+                                # Установить skip_until чтобы пропустить все строки пары
+                                skip_until = smart_click_end
+
+                                # Добавить answer_question вместо пары
+                                result_lines.append('# Ответ на вопрос (heading → button)')
+                                if exact:
+                                    result_lines.append(f'await answer_question("{heading_text}", "{button_text}", exact=True)')
+                                else:
+                                    result_lines.append(f'await answer_question("{heading_text}", "{button_text}")')
+                                result_lines.append('')
+
+                                i += 1
+                                continue
+
+            # Если не нашли пару - оставить строку как есть
+            result_lines.append(line)
+            i += 1
+
+        return '\n'.join(result_lines)
+
+    def _find_heading_click_in_block(self, lines: List[str], start_idx: int) -> int:
+        """
+        Ищет строку с heading click в блоке (в пределах 15 строк от комментария)
+        Возвращает индекс строки или -1
+        """
+        for i in range(start_idx, min(start_idx + 15, len(lines))):
+            line = lines[i]
+            if 'await page.get_by_role("heading"' in line and '.click(' in line:
+                return i
+        return -1
+
+    def _extract_heading_text(self, line: str) -> Optional[str]:
+        """Извлекает текст из get_by_role("heading", name="...")"""
+        # Паттерн с двойными кавычками
+        pattern_double = r'get_by_role\("heading",\s*name="([^"]+)"\)'
+        match = re.search(pattern_double, line)
+        if match:
+            return match.group(1)
+
+        # Паттерн с одинарными кавычками
+        pattern_single = r"get_by_role\('heading',\s*name='([^']+)'\)"
+        match = re.search(pattern_single, line)
+        if match:
+            return match.group(1)
+
+        return None
+
+    def _find_click_block_end(self, lines: List[str], click_line_idx: int) -> int:
+        """
+        Находит конец блока клика (try-except + await page.wait_for_timeout)
+        Возвращает индекс последней непустой строки блока
+        """
+        i = click_line_idx + 1
+
+        # Пройтись до конца блока try-except
+        in_try_block = True
+        while i < len(lines):
+            line = lines[i].strip()
+
+            # Конец блока - пустая строка после await page.wait_for_timeout
+            if not line:
+                return i - 1
+
+            # Или await page.wait_for_timeout с комментарием
+            if 'await page.wait_for_timeout' in line and '# Пауза' in line:
+                return i
+
+            i += 1
+
+        return i - 1
+
+    def _find_next_smart_click_button(self, lines: List[str], start_idx: int, max_distance: int = 20) -> Optional[tuple]:
+        """
+        Ищет следующий вызов smart_click_button в пределах max_distance строк
+
+        Returns:
+            (line_idx, button_text, exact) или None
+        """
+        for i in range(start_idx, min(start_idx + max_distance, len(lines))):
+            line = lines[i]
+
+            if 'await smart_click_button(' in line:
+                # Извлечь параметры
+                # Паттерн с exact=True
+                pattern_exact = r'await smart_click_button\("([^"]+)",\s*exact=True\)'
+                match = re.search(pattern_exact, line)
+                if match:
+                    return (i, match.group(1), True)
+
+                # Паттерн без exact
+                pattern = r'await smart_click_button\("([^"]+)"\)'
+                match = re.search(pattern, line)
+                if match:
+                    return (i, match.group(1), False)
+
+        return None
+
+    def _has_fill_between(self, lines: List[str], start_idx: int, end_idx: int) -> bool:
+        """
+        Проверяет есть ли fill() между двумя индексами
+        Если есть - это НЕ пара вопрос-ответ
+        """
+        for i in range(start_idx, end_idx):
+            line = lines[i]
+            if '.fill(' in line or '.press_sequentially(' in line:
+                return True
+        return False
 
     def _is_button_click(self, selector_code: str) -> bool:
         """
