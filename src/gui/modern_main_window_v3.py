@@ -90,11 +90,16 @@ class ModernAppV3(ctk.CTk):
         # === СОЗДАНИЕ UI ===
         self.create_ui()
 
+        # 🔥 КРИТИЧНО: Поднять toast контейнер ПОСЛЕ создания всех виджетов!
+        # Иначе CTkTabview и другие виджеты закрывают toast
+        self.toast.container.lift()
+        print("[MAIN WINDOW] Toast контейнер поднят после create_ui()")
+
         # === ГОРЯЧИЕ КЛАВИШИ ===
         self.setup_hotkeys()
 
-        # Показать приветствие
-        self.after(500, lambda: self.toast.success("🚀 auto2tesst v3 EPIC загружен!", duration=3000))
+        # Показать приветствие (увеличен delay для полной отрисовки окна)
+        self.after(1000, lambda: self.toast.success("🚀 auto2tesst v3 EPIC загружен!", duration=3000))
 
     # ========================================================================
     # КОНФИГУРАЦИЯ
