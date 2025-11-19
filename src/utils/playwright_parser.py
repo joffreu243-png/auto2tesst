@@ -440,18 +440,24 @@ class PlaywrightParser:
         code_lines = []
         var_index = 0
 
-        # Добавить переход на страницу (если есть)
-        if url:
-            code_lines.append(f'# Переход на страницу')
-            code_lines.append(f'try:')
-            code_lines.append(f'    # Используем domcontentloaded вместо load - быстрее и надежнее')
-            code_lines.append(f'    await page.goto("{url}", wait_until="domcontentloaded", timeout=60000)')
-            code_lines.append(f'    print("[OK] Страница загружена: {url}")')
-            code_lines.append(f'    await page.wait_for_timeout(2000)  # Доп. пауза для загрузки JS')
-            code_lines.append(f'except Exception as e:')
-            code_lines.append(f'    print(f"[WARNING] Проблема при загрузке страницы: {{e}}")')
-            code_lines.append(f'    print("[INFO] Продолжаем работу...")')
-            code_lines.append('')
+        # === SMART BUTTON HANDLER ADDED ===
+        # Добавить определение вспомогательной async функции smart_click_button в начало
+        code_lines.append('# === SMART BUTTON CLICK HANDLER ===')
+        code_lines.append('# Функция для устойчивого клика по кнопкам (независимо от порядка появления)')
+        code_lines.append('async def smart_click_button(name: str, exact: bool = False):')
+        code_lines.append('    """Умный клик по кнопке с ожиданием появления"""')
+        code_lines.append('    locator = page.get_by_role("button", name=name, exact=exact)')
+        code_lines.append('    try:')
+        code_lines.append('        await locator.wait_for(state="visible", timeout=30000)')
+        code_lines.append('        if await locator.is_visible():')
+        code_lines.append('            print(f"[SMART CLICK] Кликаю кнопку: {name}")')
+        code_lines.append('            await locator.click(delay=100)')
+        code_lines.append('            await page.wait_for_load_state("networkidle", timeout=10000)')
+        code_lines.append('    except Exception as e:')
+        code_lines.append('        print(f"[SMART CLICK] Кнопка \'{name}\' не появилась за 30 сек или уже была обработана: {e}")')
+        code_lines.append('')
+        code_lines.append('# === END SMART BUTTON HANDLER ===')
+        code_lines.append('')
 
         for action in actions:
             if action['type'] == 'goto':
@@ -518,19 +524,26 @@ class PlaywrightParser:
                 # Экранировать кавычки для использования в f-строке
                 selector_code_escaped = selector_code.replace('"', '\\"')
 
-                code_lines.append('# Клик по элементу')
-                code_lines.append(f'print(f"DEBUG: Клик по: {selector_code_escaped}")')
-                code_lines.append(f'try:')
-                code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=20000)')
-                code_lines.append(f'    await page.{selector_code}.scroll_into_view_if_needed()')
-                code_lines.append(f'    await page.wait_for_timeout(500)')
-                code_lines.append(f'    await page.{selector_code}.click(timeout=10000)')
-                code_lines.append(f'    print("[OK] Клик выполнен")')
-                code_lines.append(f'except Exception as e:')
-                code_lines.append(f'    print(f"[WARNING] Не удалось кликнуть: {{e}}")')
-                code_lines.append(f'    print("[INFO] Пропускаем клик и продолжаем...")')
-                code_lines.append('await page.wait_for_timeout(2000)  # Пауза 2 сек')
-                code_lines.append('')
+                # === SMART BUTTON HANDLER ADDED ===
+                # Проверить, является ли это кликом по кнопке
+                is_button_click = self._is_button_click(selector_code)
+
+                if is_button_click:
+                    # Для кнопок - использовать smart_click_button (с await!)
+                    button_name, exact = self._extract_button_params(selector_code)
+                    if button_name:
+                        code_lines.append(f'# Умный клик по кнопке: {button_name}')
+                        if exact:
+                            code_lines.append(f'await smart_click_button("{button_name}", exact=True)')
+                        else:
+                            code_lines.append(f'await smart_click_button("{button_name}")')
+                        code_lines.append('')
+                    else:
+                        # Fallback если не смогли извлечь параметры
+                        self._generate_standard_click_code(code_lines, selector_code, selector_code_escaped)
+                else:
+                    # Для остальных элементов (textbox, link, combobox и т.д.) - обычный код
+                    self._generate_standard_click_code(code_lines, selector_code, selector_code_escaped)
 
             elif action['type'] == 'fill':
                 selector = action['selector']
@@ -639,7 +652,69 @@ class PlaywrightParser:
 
                 var_index += 1
 
+        # === SMART BUTTON HANDLER ADDED ===
+        # Трансформация теперь происходит на этапе генерации, пост-обработка не нужна
         return '\n'.join(code_lines)
+
+    def _is_button_click(self, selector_code: str) -> bool:
+        """
+        === SMART BUTTON HANDLER ADDED ===
+        Проверяет является ли селектор кликом по кнопке
+        """
+        return 'get_by_role("button"' in selector_code or "get_by_role('button'" in selector_code
+
+    def _extract_button_params(self, selector_code: str) -> tuple:
+        """
+        === SMART BUTTON HANDLER ADDED ===
+        Извлекает параметры name и exact из селектора кнопки
+
+        Returns:
+            (button_name, exact) или (None, False) если не удалось извлечь
+        """
+        # Паттерн с exact=True (двойные кавычки)
+        pattern_exact_double = r'get_by_role\("button",\s*name="([^"]+)",\s*exact=True\)'
+        match = re.search(pattern_exact_double, selector_code)
+        if match:
+            return (match.group(1), True)
+
+        # Паттерн с exact=True (одинарные кавычки)
+        pattern_exact_single = r"get_by_role\('button',\s*name='([^']+)',\s*exact=True\)"
+        match = re.search(pattern_exact_single, selector_code)
+        if match:
+            return (match.group(1), True)
+
+        # Паттерн без exact (двойные кавычки)
+        pattern_double = r'get_by_role\("button",\s*name="([^"]+)"\)'
+        match = re.search(pattern_double, selector_code)
+        if match:
+            return (match.group(1), False)
+
+        # Паттерн без exact (одинарные кавычки)
+        pattern_single = r"get_by_role\('button',\s*name='([^']+)'\)"
+        match = re.search(pattern_single, selector_code)
+        if match:
+            return (match.group(1), False)
+
+        return (None, False)
+
+    def _generate_standard_click_code(self, code_lines: list, selector_code: str, selector_code_escaped: str):
+        """
+        === SMART BUTTON HANDLER ADDED ===
+        Генерирует стандартный код клика для НЕ-кнопок (textbox, link, combobox и т.д.)
+        """
+        code_lines.append('# Клик по элементу')
+        code_lines.append(f'print(f"DEBUG: Клик по: {selector_code_escaped}")')
+        code_lines.append(f'try:')
+        code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=20000)')
+        code_lines.append(f'    await page.{selector_code}.scroll_into_view_if_needed()')
+        code_lines.append(f'    await page.wait_for_timeout(500)')
+        code_lines.append(f'    await page.{selector_code}.click(timeout=10000)')
+        code_lines.append(f'    print("[OK] Клик выполнен")')
+        code_lines.append(f'except Exception as e:')
+        code_lines.append(f'    print(f"[WARNING] Не удалось кликнуть: {{e}}")')
+        code_lines.append(f'    print("[INFO] Пропускаем клик и продолжаем...")')
+        code_lines.append('await page.wait_for_timeout(2000)  # Пауза 2 сек')
+        code_lines.append('')
 
     def _generate_selector_code(self, selector: Dict) -> str:
         """Генерирует код селектора Playwright"""
