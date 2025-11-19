@@ -21,6 +21,7 @@ class Toast(ctk.CTkFrame):
     """
 
     def __init__(self, parent, message: str, type: Literal['info', 'success', 'warning', 'error'] = 'info', duration: int = 3000):
+        print(f"[TOAST DEBUG] Toast.__init__(): parent={parent}, message={message[:30]}, type={type}")  # DEBUG
         from ..themes import ModernTheme
 
         self.theme = ModernTheme.DARK
@@ -29,11 +30,13 @@ class Toast(ctk.CTkFrame):
         self._destroyed = False  # 🔥 Флаг для предотвращения TclError
         self._after_ids = []  # 🔥 Список всех after ID для отмены
 
+        print(f"[TOAST DEBUG] Вызываю super().__init__() для создания Frame")  # DEBUG
         super().__init__(
             parent,
             corner_radius=ModernTheme.RADIUS['lg'],
             border_width=1,
         )
+        print(f"[TOAST DEBUG] Frame создан")  # DEBUG
 
         # Цвета в зависимости от типа
         colors = {
@@ -224,6 +227,10 @@ class ToastManager:
             type: Тип уведомления (info, success, warning, error)
             duration: Длительность в мс (0 = бесконечно)
         """
+        print(f"[TOAST DEBUG] show() вызван: type={type}, message={message[:50]}")  # DEBUG
+        print(f"[TOAST DEBUG] self.container={self.container}")  # DEBUG
+        print(f"[TOAST DEBUG] len(self.toasts)={len(self.toasts)}")  # DEBUG
+
         # Убрать лишние toast если их слишком много
         while len(self.toasts) >= self.max_toasts:
             oldest = self.toasts.pop(0)
@@ -233,11 +240,16 @@ class ToastManager:
                 pass
 
         # Создать новый toast
+        print(f"[TOAST DEBUG] Создаю новый Toast...")  # DEBUG
         toast = Toast(self.container, message, type, duration)
+        print(f"[TOAST DEBUG] Toast создан: {toast}")  # DEBUG
         self.toasts.append(toast)
 
         # Разместить toast в стеке (снизу вверх)
+        print(f"[TOAST DEBUG] Вызываю _reposition_toasts()")  # DEBUG
         self._reposition_toasts()
+
+        print(f"[TOAST DEBUG] show() завершён, toast должен быть виден!")  # DEBUG
 
         return toast
 
@@ -245,12 +257,17 @@ class ToastManager:
         """Переставляет все toast в стеке"""
         spacing = 12
 
+        print(f"[TOAST DEBUG] _reposition_toasts(): всего {len(self.toasts)} toast")  # DEBUG
+
         # Снизу вверх
         for i, toast in enumerate(reversed(self.toasts)):
             try:
+                print(f"[TOAST DEBUG] Размещаю toast #{i}: destroyed={toast._destroyed}")  # DEBUG
                 if not toast._destroyed:
                     toast.pack(side="bottom", fill="x", pady=(0, spacing if i > 0 else 0))
-            except:
+                    print(f"[TOAST DEBUG] Toast #{i} размещён: side=bottom, fill=x")  # DEBUG
+            except Exception as e:
+                print(f"[TOAST DEBUG] Ошибка размещения toast #{i}: {e}")  # DEBUG
                 # Удалить уничтоженные toast из списка
                 if toast in self.toasts:
                     self.toasts.remove(toast)
