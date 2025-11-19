@@ -30,6 +30,11 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         self.config = config
         self.toast = toast_manager
 
+        print(f"[OCTO_TAB] __init__ вызван")
+        print(f"[OCTO_TAB] config id: {id(config)}")
+        token = config.get('octobrowser', {}).get('api_token', '')
+        print(f"[OCTO_TAB] Токен при инициализации: {token[:10]}..." if token else "[OCTO_TAB] Токен при инициализации пуст")
+
         self.grid_columnconfigure(0, weight=1)
 
         self.create_widgets()
@@ -454,10 +459,18 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
     def save_settings(self):
         """Сохранить все настройки"""
+        print("[OCTO_TAB] === НАЧАЛО save_settings() ===")
+
         # Update config
+        token = self.token_entry.get().strip()
+        base_url = self.base_url_entry.get().strip()
+
+        print(f"[OCTO_TAB] Сохраняю токен: {token[:10]}..." if token else "[OCTO_TAB] Токен пуст")
+        print(f"[OCTO_TAB] Сохраняю base_url: {base_url}")
+
         self.config.setdefault('octobrowser', {})
-        self.config['octobrowser']['api_token'] = self.token_entry.get().strip()
-        self.config['octobrowser']['api_base_url'] = self.base_url_entry.get().strip()
+        self.config['octobrowser']['api_token'] = token
+        self.config['octobrowser']['api_base_url'] = base_url
 
         self.config.setdefault('octo_defaults', {})
         self.config['octo_defaults']['tags'] = [
@@ -484,14 +497,24 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
         # Save to file
         config_path = Path(__file__).parent.parent.parent / 'config.json'
+        print(f"[OCTO_TAB] Путь к config: {config_path}")
+        print(f"[OCTO_TAB] config существует: {config_path.exists()}")
+
         try:
+            print(f"[OCTO_TAB] Записываю в файл...")
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
+
+            print(f"[OCTO_TAB] ✅ Файл сохранён успешно!")
+            print(f"[OCTO_TAB] Токен в config: {self.config.get('octobrowser', {}).get('api_token', '')[:10]}...")
 
             if self.toast:
                 self.toast.success("Настройки сохранены!")
 
         except Exception as e:
+            print(f"[OCTO_TAB] ❌ ОШИБКА сохранения: {e}")
+            import traceback
+            traceback.print_exc()
             if self.toast:
                 self.toast.error(f"Ошибка сохранения: {e}")
 

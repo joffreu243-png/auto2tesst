@@ -108,9 +108,12 @@ class ModernAppV3(ctk.CTk):
     def load_config(self):
         """Загрузка конфигурации из config.json"""
         config_path = Path(__file__).parent.parent.parent / 'config.json'
+        print(f"[MAIN] Загрузка config из: {config_path}")
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
+            token = self.config.get('octobrowser', {}).get('api_token', '')
+            print(f"[MAIN] ✅ Config загружен. Токен: {token[:10]}..." if token else "[MAIN] ✅ Config загружен. Токен пуст")
         except FileNotFoundError:
             # 🔥 СОЗДАТЬ ДЕФОЛТНЫЙ CONFIG И СОХРАНИТЬ В ФАЙЛ
             self.config = {
@@ -440,6 +443,9 @@ class ModernAppV3(ctk.CTk):
 
     def setup_octo_tab(self):
         """Настроить вкладку Octo API"""
+        print(f"[MAIN] setup_octo_tab(): config id = {id(self.config)}")
+        token = self.config.get('octobrowser', {}).get('api_token', '')
+        print(f"[MAIN] Передаю config с токеном: {token[:10]}..." if token else "[MAIN] Передаю config с пустым токеном")
         self.octo_tab_widget = OctoAPITab(self.tab_octo, self.theme, self.config, self.toast)
         self.octo_tab_widget.pack(fill="both", expand=True)
 
