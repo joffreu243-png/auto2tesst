@@ -16,6 +16,7 @@ from tkinter import filedialog
 from typing import Dict, List, Optional
 from pathlib import Path
 import json
+import requests
 
 
 class OctoAPITab(ctk.CTkScrollableFrame):
@@ -660,23 +661,25 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         Returns:
             Словарь с настройками профиля
         """
+        # 🔥 ИСПРАВЛЕНИЕ: Конвертация OS в правильный формат API
+        # Windows → win, Mac → mac (по документации)
+        os_value = self.os_var.get()
+        if os_value == 'Windows':
+            api_os = 'win'
+        elif os_value == 'Mac':
+            api_os = 'mac'
+        elif os_value == 'Random':
+            api_os = 'win'  # Default для random
+        else:
+            api_os = os_value.lower()  # Fallback
+
+        # МИНИМАЛЬНЫЙ fingerprint (по официальной документации)
+        # https://documenter.getpostman.com/view/1801428/UVC6i6eA
         config = {
             'tags': [tag.strip() for tag in self.tags_entry.get().split(',') if tag.strip()],
             'notes': self.notes_textbox.get("1.0", "end-1c").strip(),
             'fingerprint': {
-                'os': self.os_var.get().lower() if self.os_var.get() != 'Random' else 'random',
-                'webrtc': {
-                    'mode': self.webrtc_var.get().lower()
-                },
-                'canvas': {
-                    'mode': 'noise' if self.canvas_var.get() else 'off'
-                },
-                'webgl': {
-                    'mode': 'noise' if self.webgl_var.get() else 'off'
-                },
-                'fonts': {
-                    'enable_masking': self.fonts_var.get()
-                }
+                'os': api_os  # Только обязательное поле
             }
         }
 
