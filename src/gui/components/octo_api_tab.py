@@ -499,14 +499,28 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         config_path = Path(__file__).parent.parent.parent / 'config.json'
         print(f"[OCTO_TAB] Путь к config: {config_path}")
         print(f"[OCTO_TAB] config существует: {config_path.exists()}")
+        print(f"[OCTO_TAB] id(self.config) = {id(self.config)}")
+        print(f"[OCTO_TAB] self.config is dict: {isinstance(self.config, dict)}")
 
         try:
             print(f"[OCTO_TAB] Записываю в файл...")
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
 
-            print(f"[OCTO_TAB] ✅ Файл сохранён успешно!")
-            print(f"[OCTO_TAB] Токен в config: {self.config.get('octobrowser', {}).get('api_token', '')[:10]}...")
+            print(f"[OCTO_TAB] ✅ Файл записан на диск!")
+            print(f"[OCTO_TAB] Токен в self.config: {self.config.get('octobrowser', {}).get('api_token', '')[:10]}...")
+
+            # 🔥 ПРОВЕРКА: Прочитаем файл обратно, чтобы убедиться что он обновился
+            print(f"[OCTO_TAB] === ПРОВЕРКА: Читаю файл обратно ===")
+            with open(config_path, 'r', encoding='utf-8') as f:
+                saved_config = json.load(f)
+            saved_token = saved_config.get('octobrowser', {}).get('api_token', '')
+            print(f"[OCTO_TAB] Токен в ФАЙЛЕ: {saved_token[:10]}..." if saved_token else "[OCTO_TAB] ❌ ТОКЕН В ФАЙЛЕ ПУСТОЙ!")
+
+            if saved_token != token:
+                print(f"[OCTO_TAB] ⚠️ ВНИМАНИЕ: Токены не совпадают!")
+                print(f"[OCTO_TAB]   Ожидали: {token[:10]}...")
+                print(f"[OCTO_TAB]   В файле: {saved_token[:10]}..." if saved_token else "пусто")
 
             if self.toast:
                 self.toast.success("Настройки сохранены!")
