@@ -789,6 +789,17 @@ class ModernAppV3(ctk.CTk):
             self.toast.error("⚠️ Редактор пуст! Сначала напишите код или сгенерируйте скрипт")
             return
 
+        # 🔥 АВТОГЕНЕРАЦИЯ: Если в коде нет Octobrowser обертки, сгенерировать автоматически
+        if 'check_local_api' not in code and 'create_profile' not in code:
+            print("[DEBUG] Код не содержит Octobrowser обертку - запускаю автогенерацию...")
+            self.toast.info("⚙️ Генерирую полный скрипт...")
+            self.generate_playwright_script()
+            # После генерации берем новый код
+            code = self.code_editor.get("1.0", "end-1c").strip()
+            if not code:
+                self.toast.error("❌ Ошибка генерации скрипта")
+                return
+
         try:
             # Сохранить скрипт
             output_dir = Path(self.config['script_settings']['output_directory'])

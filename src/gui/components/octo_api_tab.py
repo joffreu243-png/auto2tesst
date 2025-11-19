@@ -328,9 +328,27 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         )
         self.notes_textbox.pack(fill="both", padx=16, pady=16)
 
-        # === SAVE BUTTON ===
+        # === BUTTONS FRAME ===
+        buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
+        buttons_frame.grid(row=7, column=0, padx=32, pady=32, sticky="ew")
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=1)
+
+        # Test Create Profile button
+        test_profile_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🧪 Test Create Profile",
+            command=self.test_create_profile,
+            height=56,
+            fg_color=self.theme['accent_info'],
+            hover_color=self.theme['bg_hover'],
+            font=('Segoe UI', 14, 'bold')
+        )
+        test_profile_btn.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+
+        # Save button
         save_btn = ctk.CTkButton(
-            self,
+            buttons_frame,
             text="💾 Save API Settings",
             command=self.save_settings,
             height=56,
@@ -338,7 +356,7 @@ class OctoAPITab(ctk.CTkScrollableFrame):
             hover_color=self.theme['bg_hover'],
             font=('Segoe UI', 14, 'bold')
         )
-        save_btn.grid(row=7, column=0, padx=32, pady=32, sticky="ew")
+        save_btn.grid(row=0, column=1, padx=(8, 0), sticky="ew")
 
     def create_collapsible_section(self, title: str, row: int) -> ctk.CTkFrame:
         """Создать сворачиваемую секцию"""
@@ -457,6 +475,82 @@ class OctoAPITab(ctk.CTkScrollableFrame):
             traceback.print_exc()  # DEBUG
             if self.toast:
                 self.toast.error(f"Ошибка: {str(e)}")
+
+    def test_create_profile(self):
+        """🧪 Тестовое создание профиля Octobrowser"""
+        import time
+
+        print("[TEST_PROFILE] === НАЧАЛО ТЕСТА СОЗДАНИЯ ПРОФИЛЯ ===")
+
+        token = self.token_entry.get().strip()
+        base_url = self.base_url_entry.get().strip()
+
+        if not token:
+            if self.toast:
+                self.toast.warning("⚠️ Введите API Token")
+            return
+
+        if self.toast:
+            self.toast.info("🧪 Создаю тестовый профиль...")
+
+        # Получить настройки профиля
+        profile_config = self.get_profile_config()
+
+        # Подготовить данные профиля
+        profile_data = {
+            "title": f"TestProfile_{int(time.time())}",
+            "fingerprint": profile_config.get('fingerprint', {"os": "win"})
+        }
+
+        # Добавить теги если есть
+        if profile_config.get('tags'):
+            profile_data["tags"] = profile_config['tags']
+
+        # Добавить заметки если есть
+        if profile_config.get('notes'):
+            profile_data["notes"] = profile_config['notes']
+
+        # Добавить geolocation если включено
+        if profile_config.get('geolocation'):
+            profile_data["geolocation"] = profile_config['geolocation']
+
+        try:
+            print(f"[TEST_PROFILE] Отправка запроса на создание профиля...")
+            print(f"[TEST_PROFILE] URL: {base_url}/profiles")
+            print(f"[TEST_PROFILE] Данные: {profile_data}")
+
+            response = requests.post(
+                f"{base_url}/profiles",
+                headers={"X-Octo-Api-Token": token},
+                json=profile_data,
+                timeout=10
+            )
+
+            print(f"[TEST_PROFILE] Ответ: {response.status_code}")
+            print(f"[TEST_PROFILE] Body: {response.text[:500]}")
+
+            if response.status_code == 200 or response.status_code == 201:
+                result = response.json()
+                if result.get('success') and 'data' in result:
+                    profile_uuid = result['data']['uuid']
+                    print(f"[TEST_PROFILE] ✅ Профиль создан: {profile_uuid}")
+                    if self.toast:
+                        self.toast.success(f"✅ Профиль создан!\nUUID: {profile_uuid[:8]}...")
+                else:
+                    print(f"[TEST_PROFILE] ❌ Неожиданный формат ответа: {result}")
+                    if self.toast:
+                        self.toast.warning(f"⚠️ Профиль создан, но непонятный ответ")
+            else:
+                print(f"[TEST_PROFILE] ❌ Ошибка {response.status_code}: {response.text}")
+                if self.toast:
+                    self.toast.error(f"❌ Ошибка {response.status_code}: {response.text[:100]}")
+
+        except Exception as e:
+            print(f"[TEST_PROFILE] ❌ Exception: {e}")
+            import traceback
+            traceback.print_exc()
+            if self.toast:
+                self.toast.error(f"❌ Ошибка: {str(e)}")
 
     def save_settings(self):
         """
