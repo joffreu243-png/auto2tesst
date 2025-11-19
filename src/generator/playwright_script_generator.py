@@ -121,9 +121,19 @@ SMS_API_BASE_URL = "https://daisysms.com/stubs/handler_api.php"
         if profile_config is None:
             profile_config = {}
 
-        # Подготовить данные профиля из конфигурации GUI
+        # Подготовить значения из конфигурации (ДО f-string чтобы избежать unhashable type error)
         import json
-        profile_data_str = json.dumps(profile_config, indent=8, ensure_ascii=False)
+
+        fingerprint = profile_config.get('fingerprint') or {"os": "win"}
+        tags = profile_config.get('tags', [])
+        notes = profile_config.get('notes', '')
+        geolocation = profile_config.get('geolocation')
+
+        # Конвертировать в JSON строки для вставки в код
+        fingerprint_json = json.dumps(fingerprint)
+        tags_json = json.dumps(tags)
+        notes_repr = repr(notes)
+        geolocation_json = json.dumps(geolocation) if geolocation else "None"
 
         return f'''# ============================================================
 # ФУНКЦИИ OCTOBROWSER API
@@ -140,22 +150,22 @@ def create_profile() -> Optional[str]:
     # 🔥 НАСТРОЙКИ ПРОФИЛЯ ИЗ GUI (Octo API Tab)
     profile_data = {{
         "title": f"AutoProfile_{{int(time.time())}}",
-        "fingerprint": {profile_config.get('fingerprint', {{"os": "win"}})},
+        "fingerprint": {fingerprint_json},
     }}
 
     # Добавить теги если указаны
-    tags = {profile_config.get('tags', [])}
+    tags = {tags_json}
     if tags:
         profile_data["tags"] = tags
         print(f"[TAGS] Установлены теги: {{tags}}")
 
     # Добавить заметки если указаны
-    notes = {repr(profile_config.get('notes', ''))}
+    notes = {notes_repr}
     if notes:
         profile_data["notes"] = notes
 
     # Добавить geolocation если включено
-    geolocation = {profile_config.get('geolocation')}
+    geolocation = {geolocation_json}
     if geolocation:
         profile_data["geolocation"] = geolocation
         print(f"[GEO] Установлена геолокация: {{geolocation.get('latitude')}}, {{geolocation.get('longitude')}}")
@@ -178,59 +188,59 @@ def create_profile() -> Optional[str]:
 
         if result.get('success') and 'data' in result:
             profile_uuid = result['data']['uuid']
-            print(f"[OK] Профиль создан: {profile_uuid}")
+            print(f"[OK] Профиль создан: {{profile_uuid}}")
             return profile_uuid
         else:
-            print(f"[ERROR] Не удалось создать профиль: {result}")
+            print(f"[ERROR] Не удалось создать профиль: {{result}}")
             return None
 
     except Exception as e:
-        print(f"[ERROR] Ошибка создания профиля: {e}")
+        print(f"[ERROR] Ошибка создания профиля: {{e}}")
         return None
 
 
 def start_profile(profile_uuid: str) -> Optional[str]:
     """Запуск профиля через локальный API"""
-    url = f"{LOCAL_API_URL}/profiles/start"
-    payload = {
+    url = f"{{LOCAL_API_URL}}/profiles/start"
+    payload = {{
         "uuid": profile_uuid,
         "headless": False,
         "debug_port": True
-    }
+    }}
 
     try:
-        print(f"Запуск профиля {profile_uuid}...")
+        print(f"Запуск профиля {{profile_uuid}}...")
         response = requests.post(url, json=payload)
         response.raise_for_status()
         result = response.json()
 
         debug_port = result.get('debug_port')
         if debug_port:
-            print(f"[OK] Профиль запущен на порту: {debug_port}")
+            print(f"[OK] Профиль запущен на порту: {{debug_port}}")
             # Подождать инициализации
             time.sleep(3)
             return str(debug_port)
         else:
-            print(f"[ERROR] Не получен debug_port: {result}")
+            print(f"[ERROR] Не получен debug_port: {{result}}")
             return None
 
     except Exception as e:
-        print(f"[ERROR] Ошибка запуска профиля: {e}")
+        print(f"[ERROR] Ошибка запуска профиля: {{e}}")
         return None
 
 
 def stop_profile(profile_uuid: str) -> bool:
     """Остановка профиля"""
-    url = f"{LOCAL_API_URL}/profiles/stop"
-    payload = {"uuid": profile_uuid}
+    url = f"{{LOCAL_API_URL}}/profiles/stop"
+    payload = {{"uuid": profile_uuid}}
 
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
-        print(f"[OK] Профиль {profile_uuid} остановлен")
+        print(f"[OK] Профиль {{profile_uuid}} остановлен")
         return True
     except Exception as e:
-        print(f"[WARNING] Не удалось остановить профиль: {e}")
+        print(f"[WARNING] Не удалось остановить профиль: {{e}}")
         return False
 
 
