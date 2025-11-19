@@ -213,10 +213,24 @@ class ToastManager:
 
     def place_container(self, x=None, y=None, relx=None, rely=None, anchor=None):
         """Размещает контейнер в нужном месте окна"""
+        print(f"[TOAST DEBUG] place_container() вызван: relx={relx}, rely={rely}, anchor={anchor}")  # DEBUG
+
         if relx is not None or rely is not None:
             self.container.place(relx=relx or 0.95, rely=rely or 0.95, anchor=anchor or "se")
+            print(f"[TOAST DEBUG] Контейнер размещён: place(relx={relx or 0.95}, rely={rely or 0.95}, anchor={anchor or 'se'})")  # DEBUG
         else:
             self.container.place(x=x or 20, y=y or 20, anchor=anchor or "se")
+            print(f"[TOAST DEBUG] Контейнер размещён: place(x={x or 20}, y={y or 20}, anchor={anchor or 'se'})")  # DEBUG
+
+        # Проверка размещения
+        self.container.update_idletasks()
+        print(f"[TOAST DEBUG] Контейнер после update_idletasks():")  # DEBUG
+        print(f"[TOAST DEBUG]   winfo_viewable={self.container.winfo_viewable()}")  # DEBUG
+        print(f"[TOAST DEBUG]   winfo_ismapped={self.container.winfo_ismapped()}")  # DEBUG
+        print(f"[TOAST DEBUG]   winfo_width={self.container.winfo_width()}")  # DEBUG
+        print(f"[TOAST DEBUG]   winfo_height={self.container.winfo_height()}")  # DEBUG
+        print(f"[TOAST DEBUG]   winfo_x={self.container.winfo_x()}")  # DEBUG
+        print(f"[TOAST DEBUG]   winfo_y={self.container.winfo_y()}")  # DEBUG
 
     def show(self, message: str, type: Literal['info', 'success', 'warning', 'error'] = 'info', duration: int = 3000):
         """
@@ -248,6 +262,16 @@ class ToastManager:
         # Разместить toast в стеке (снизу вверх)
         print(f"[TOAST DEBUG] Вызываю _reposition_toasts()")  # DEBUG
         self._reposition_toasts()
+
+        # Обновить геометрию
+        self.container.update_idletasks()
+        print(f"[TOAST DEBUG] После размещения toast:")  # DEBUG
+        print(f"[TOAST DEBUG]   container.winfo_width={self.container.winfo_width()}")  # DEBUG
+        print(f"[TOAST DEBUG]   container.winfo_height={self.container.winfo_height()}")  # DEBUG
+        print(f"[TOAST DEBUG]   container.winfo_ismapped={self.container.winfo_ismapped()}")  # DEBUG
+        print(f"[TOAST DEBUG]   toast.winfo_width={toast.winfo_width()}")  # DEBUG
+        print(f"[TOAST DEBUG]   toast.winfo_height={toast.winfo_height()}")  # DEBUG
+        print(f"[TOAST DEBUG]   toast.winfo_ismapped={toast.winfo_ismapped()}")  # DEBUG
 
         print(f"[TOAST DEBUG] show() завершён, toast должен быть виден!")  # DEBUG
 
