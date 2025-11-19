@@ -622,7 +622,7 @@ def run_automation_iteration(iteration_number: int, data_row: Dict):
         print("[ERROR] Закрытие профиля из-за ошибки...")
         if browser:
             try:
-                await browser.close()
+                browser.close()
                 print("[OK] Браузер закрыт")
             except:
                 pass
