@@ -241,16 +241,18 @@ class DataTab(ctk.CTkFrame):
             rows: Строки данных
         """
         self.headers = headers
-        self.rows = rows
 
-        # Очистить таблицу
+        # Очистить таблицу (очищает self.rows!)
         self.clear_table()
+
+        # ПОСЛЕ очистки заполнить self.rows (копия для безопасности)
+        self.rows = [row.copy() if isinstance(row, list) else list(row) for row in rows]
 
         # Создать заголовки
         self.create_header_row()
 
-        # Создать строки
-        for row_data in rows:
+        # Создать виджеты строк
+        for row_data in self.rows:
             self._add_row_widget(row_data)
 
         # Скрыть placeholder
@@ -258,7 +260,7 @@ class DataTab(ctk.CTkFrame):
             self.placeholder.pack_forget()
 
         if self.toast:
-            self.toast.success(f"Загружено {len(rows)} строк с {len(headers)} колонками")
+            self.toast.success(f"Загружено {len(self.rows)} строк с {len(headers)} колонками")
 
     def create_header_row(self):
         """Создать строку заголовков"""
@@ -331,13 +333,16 @@ class DataTab(ctk.CTkFrame):
 
     def delete_row(self, row_index: int):
         """Удалить строку"""
-        if 0 <= row_index < len(self.row_widgets):
+        # Проверить валидность индекса для ОБОИХ списков
+        if 0 <= row_index < len(self.row_widgets) and 0 <= row_index < len(self.rows):
+            # Удалить из rows ДО удаления виджета
+            self.rows.pop(row_index)
+
             # Удалить виджет
             self.row_widgets[row_index].destroy()
             self.row_widgets.pop(row_index)
-            self.rows.pop(row_index)
 
-            # Обновить индексы
+            # Обновить индексы ВСЕХ оставшихся виджетов
             for i, row_widget in enumerate(self.row_widgets):
                 row_widget.row_index = i
 
@@ -347,6 +352,10 @@ class DataTab(ctk.CTkFrame):
             # Показать placeholder если пусто
             if not self.rows:
                 self.placeholder.pack(expand=True, pady=100)
+        else:
+            # Защита от десинхронизации
+            if self.toast:
+                self.toast.error("Ошибка удаления строки")
 
     def edit_row(self, row_index: int, action: str):
         """Редактировать строку"""
