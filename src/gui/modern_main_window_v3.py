@@ -98,6 +98,9 @@ class ModernAppV3(ctk.CTk):
         # === ГОРЯЧИЕ КЛАВИШИ ===
         self.setup_hotkeys()
 
+        # 🔥 АВТОСОХРАНЕНИЕ ПРИ ЗАКРЫТИИ ОКНА
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         # Показать приветствие (увеличен delay для полной отрисовки окна)
         self.after(1000, lambda: self.toast.success("🚀 auto2tesst v3 EPIC загружен!", duration=3000))
 
@@ -136,14 +139,44 @@ class ModernAppV3(ctk.CTk):
                 print(f"[CONFIG ERROR] Не удалось создать config.json: {e}")
 
     def save_config(self):
-        """Сохранение конфигурации"""
+        """
+        🔥 ЦЕНТРАЛИЗОВАННОЕ СОХРАНЕНИЕ КОНФИГУРАЦИИ
+
+        Все компоненты обновляют self.config в памяти,
+        а это единственное место где config.json физически сохраняется.
+        """
         config_path = Path(__file__).parent.parent.parent / 'config.json'
         try:
+            print(f"[MAIN] === ЦЕНТРАЛИЗОВАННОЕ СОХРАНЕНИЕ CONFIG ===")
+            print(f"[MAIN] Путь: {config_path}")
+
+            token = self.config.get('octobrowser', {}).get('api_token', '')
+            print(f"[MAIN] Сохраняю токен: {token[:10]}..." if token else "[MAIN] Токен пуст")
+
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
-            self.toast.success("Конфигурация сохранена")
+
+            print(f"[MAIN] ✅ Config.json сохранён успешно!")
+
+            # Проверка
+            with open(config_path, 'r', encoding='utf-8') as f:
+                check = json.load(f)
+            check_token = check.get('octobrowser', {}).get('api_token', '')
+            print(f"[MAIN] Проверка: токен в файле = {check_token[:10]}..." if check_token else "[MAIN] Проверка: токен в файле пуст")
+
+            self.toast.success("✅ Настройки сохранены")
         except Exception as e:
+            print(f"[MAIN] ❌ ОШИБКА сохранения: {e}")
+            import traceback
+            traceback.print_exc()
             self.toast.error(f"Ошибка сохранения: {e}")
+
+    def on_closing(self):
+        """Обработчик закрытия окна - автосохранение"""
+        print("[MAIN] === ЗАКРЫТИЕ ОКНА - АВТОСОХРАНЕНИЕ ===")
+        self.save_config()
+        print("[MAIN] Уничтожаю окно...")
+        self.destroy()
 
     # ========================================================================
     # СОЗДАНИЕ UI
@@ -437,8 +470,14 @@ class ModernAppV3(ctk.CTk):
 
     def setup_proxies_tab(self):
         """Настроить вкладку Proxies"""
-        # 🔥 ИСПРАВЛЕНИЕ: Передаем config для сохранения настроек прокси
-        self.proxy_tab_widget = ProxyTab(self.tab_proxies, self.theme, self.config, self.toast)
+        # 🔥 Передаём callback для централизованного сохранения
+        self.proxy_tab_widget = ProxyTab(
+            self.tab_proxies,
+            self.theme,
+            self.config,
+            self.toast,
+            save_callback=self.save_config  # ← ЕДИНСТВЕННОЕ МЕСТО сохранения config.json
+        )
         self.proxy_tab_widget.pack(fill="both", expand=True)
 
     def setup_octo_tab(self):
@@ -446,7 +485,14 @@ class ModernAppV3(ctk.CTk):
         print(f"[MAIN] setup_octo_tab(): config id = {id(self.config)}")
         token = self.config.get('octobrowser', {}).get('api_token', '')
         print(f"[MAIN] Передаю config с токеном: {token[:10]}..." if token else "[MAIN] Передаю config с пустым токеном")
-        self.octo_tab_widget = OctoAPITab(self.tab_octo, self.theme, self.config, self.toast)
+        # 🔥 Передаём callback для централизованного сохранения
+        self.octo_tab_widget = OctoAPITab(
+            self.tab_octo,
+            self.theme,
+            self.config,
+            self.toast,
+            save_callback=self.save_config  # ← ЕДИНСТВЕННОЕ МЕСТО сохранения config.json
+        )
         self.octo_tab_widget.pack(fill="both", expand=True)
 
     def setup_logs_tab(self):

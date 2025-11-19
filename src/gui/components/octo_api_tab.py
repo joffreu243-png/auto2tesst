@@ -23,12 +23,13 @@ class OctoAPITab(ctk.CTkScrollableFrame):
     Вкладка настроек Octobrowser API
     """
 
-    def __init__(self, parent, theme: Dict, config: Dict, toast_manager=None):
+    def __init__(self, parent, theme: Dict, config: Dict, toast_manager=None, save_callback=None):
         super().__init__(parent, fg_color="transparent", corner_radius=0)
 
         self.theme = theme
         self.config = config
         self.toast = toast_manager
+        self.save_callback = save_callback  # 🔥 Callback для централизованного сохранения
 
         print(f"[OCTO_TAB] __init__ вызван")
         print(f"[OCTO_TAB] config id: {id(config)}")
@@ -458,15 +459,19 @@ class OctoAPITab(ctk.CTkScrollableFrame):
                 self.toast.error(f"Ошибка: {str(e)}")
 
     def save_settings(self):
-        """Сохранить все настройки"""
-        print("[OCTO_TAB] === НАЧАЛО save_settings() ===")
+        """
+        Сохранить настройки в config (в памяти)
 
-        # Update config
+        Файл сохраняется через централизованный метод главного окна.
+        """
+        print("[OCTO_TAB] === save_settings() - обновление config в памяти ===")
+
+        # Update config в памяти
         token = self.token_entry.get().strip()
         base_url = self.base_url_entry.get().strip()
 
-        print(f"[OCTO_TAB] Сохраняю токен: {token[:10]}..." if token else "[OCTO_TAB] Токен пуст")
-        print(f"[OCTO_TAB] Сохраняю base_url: {base_url}")
+        print(f"[OCTO_TAB] Обновляю токен: {token[:10]}..." if token else "[OCTO_TAB] Токен пуст")
+        print(f"[OCTO_TAB] Обновляю base_url: {base_url}")
 
         self.config.setdefault('octobrowser', {})
         self.config['octobrowser']['api_token'] = token
@@ -495,42 +500,17 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         self.config['geolocation']['latitude'] = self.lat_entry.get().strip()
         self.config['geolocation']['longitude'] = self.lon_entry.get().strip()
 
-        # Save to file
-        config_path = Path(__file__).parent.parent.parent / 'config.json'
-        print(f"[OCTO_TAB] Путь к config: {config_path}")
-        print(f"[OCTO_TAB] config существует: {config_path.exists()}")
-        print(f"[OCTO_TAB] id(self.config) = {id(self.config)}")
-        print(f"[OCTO_TAB] self.config is dict: {isinstance(self.config, dict)}")
+        print(f"[OCTO_TAB] ✅ Config обновлён в памяти")
+        print(f"[OCTO_TAB] Токен в self.config: {self.config.get('octobrowser', {}).get('api_token', '')[:10]}...")
 
-        try:
-            print(f"[OCTO_TAB] Записываю в файл...")
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, indent=2, ensure_ascii=False)
-
-            print(f"[OCTO_TAB] ✅ Файл записан на диск!")
-            print(f"[OCTO_TAB] Токен в self.config: {self.config.get('octobrowser', {}).get('api_token', '')[:10]}...")
-
-            # 🔥 ПРОВЕРКА: Прочитаем файл обратно, чтобы убедиться что он обновился
-            print(f"[OCTO_TAB] === ПРОВЕРКА: Читаю файл обратно ===")
-            with open(config_path, 'r', encoding='utf-8') as f:
-                saved_config = json.load(f)
-            saved_token = saved_config.get('octobrowser', {}).get('api_token', '')
-            print(f"[OCTO_TAB] Токен в ФАЙЛЕ: {saved_token[:10]}..." if saved_token else "[OCTO_TAB] ❌ ТОКЕН В ФАЙЛЕ ПУСТОЙ!")
-
-            if saved_token != token:
-                print(f"[OCTO_TAB] ⚠️ ВНИМАНИЕ: Токены не совпадают!")
-                print(f"[OCTO_TAB]   Ожидали: {token[:10]}...")
-                print(f"[OCTO_TAB]   В файле: {saved_token[:10]}..." if saved_token else "пусто")
-
+        # 🔥 ЦЕНТРАЛИЗОВАННОЕ СОХРАНЕНИЕ через callback
+        if self.save_callback:
+            print(f"[OCTO_TAB] Вызываю save_callback() для записи на диск...")
+            self.save_callback()
+        else:
+            print(f"[OCTO_TAB] ⚠️ save_callback не установлен!")
             if self.toast:
-                self.toast.success("Настройки сохранены!")
-
-        except Exception as e:
-            print(f"[OCTO_TAB] ❌ ОШИБКА сохранения: {e}")
-            import traceback
-            traceback.print_exc()
-            if self.toast:
-                self.toast.error(f"Ошибка сохранения: {e}")
+                self.toast.warning("Настройки обновлены, но не сохранены")
 
     def load_saved_settings(self):
         """Загрузить сохраненные настройки из config"""

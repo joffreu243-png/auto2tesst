@@ -125,12 +125,13 @@ class ProxyTab(ctk.CTkFrame):
     Вкладка управления прокси
     """
 
-    def __init__(self, parent, theme: Dict, config: Dict, toast_manager=None):
+    def __init__(self, parent, theme: Dict, config: Dict, toast_manager=None, save_callback=None):
         super().__init__(parent, fg_color="transparent")
 
         self.theme = theme
         self.config = config
         self.toast = toast_manager
+        self.save_callback = save_callback  # 🔥 Callback для централизованного сохранения
 
         # Список прокси
         self.proxies = []
@@ -492,24 +493,26 @@ class ProxyTab(ctk.CTkFrame):
                 self._add_proxy_widget(proxy_string.strip())
 
     def save_proxies(self):
-        """Сохранить прокси в config"""
+        """
+        Сохранить прокси в config (в памяти)
+
+        Файл сохраняется через централизованный метод главного окна.
+        """
+        print("[PROXY_TAB] === save_proxies() - обновление config в памяти ===")
+
         self.config.setdefault('proxy_list', {})
         self.config['proxy_list']['proxies'] = self.get_proxies()
         self.config['proxy_list']['rotation_mode'] = self.rotation_var.get().lower()
         self.config['proxy_list']['retry_on_failure'] = self.retry_var.get()
         self.config['proxy_list']['timeout'] = int(self.timeout_entry.get()) if self.timeout_entry.get().isdigit() else 10
 
-        # Save to file
-        from pathlib import Path
-        import json
-        config_path = Path(__file__).parent.parent.parent / 'config.json'
-        try:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, indent=2, ensure_ascii=False)
+        print(f"[PROXY_TAB] ✅ Config обновлён: {len(self.config['proxy_list']['proxies'])} прокси")
 
+        # 🔥 ЦЕНТРАЛИЗОВАННОЕ СОХРАНЕНИЕ через callback
+        if self.save_callback:
+            print(f"[PROXY_TAB] Вызываю save_callback() для записи на диск...")
+            self.save_callback()
+        else:
+            print(f"[PROXY_TAB] ⚠️ save_callback не установлен!")
             if self.toast:
-                self.toast.success("Прокси сохранены!")
-
-        except Exception as e:
-            if self.toast:
-                self.toast.error(f"Ошибка сохранения: {e}")
+                self.toast.warning("Прокси обновлены, но не сохранены")
