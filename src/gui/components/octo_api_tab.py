@@ -34,6 +34,9 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
         self.create_widgets()
 
+        # 🔥 ЗАГРУЗИТЬ СОХРАНЕННЫЕ НАСТРОЙКИ
+        self.load_saved_settings()
+
     def create_widgets(self):
         """Создать виджеты"""
         # === HEADER ===
@@ -491,6 +494,53 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         except Exception as e:
             if self.toast:
                 self.toast.error(f"Ошибка сохранения: {e}")
+
+    def load_saved_settings(self):
+        """Загрузить сохраненные настройки из config"""
+        # Tags
+        saved_tags = self.config.get('octo_defaults', {}).get('tags', [])
+        if saved_tags:
+            self.tags_entry.insert(0, ', '.join(saved_tags))
+
+        # Plugins
+        saved_plugins = self.config.get('octo_defaults', {}).get('plugins', [])
+        if saved_plugins:
+            self.plugins_listbox.delete("1.0", "end")
+            self.plugins_listbox.insert("1.0", '\n'.join(saved_plugins))
+
+        # Notes
+        saved_notes = self.config.get('octo_defaults', {}).get('notes', '')
+        if saved_notes:
+            self.notes_textbox.delete("1.0", "end")
+            self.notes_textbox.insert("1.0", saved_notes)
+
+        # Fingerprint
+        fingerprint = self.config.get('fingerprint', {})
+        if fingerprint:
+            os_value = fingerprint.get('os', 'win').capitalize()
+            if os_value.lower() == 'random':
+                os_value = 'Random'
+            self.os_var.set(os_value)
+
+            webrtc_value = fingerprint.get('webrtc', 'altered').capitalize()
+            self.webrtc_var.set(webrtc_value)
+
+            self.canvas_var.set(fingerprint.get('canvas_protection', True))
+            self.webgl_var.set(fingerprint.get('webgl_protection', True))
+            self.fonts_var.set(fingerprint.get('fonts_protection', True))
+
+        # Geolocation
+        geo = self.config.get('geolocation', {})
+        if geo:
+            self.geo_enabled_var.set(geo.get('enabled', False))
+
+            lat = geo.get('latitude', '')
+            if lat:
+                self.lat_entry.insert(0, lat)
+
+            lon = geo.get('longitude', '')
+            if lon:
+                self.lon_entry.insert(0, lon)
 
     def get_profile_config(self) -> Dict:
         """

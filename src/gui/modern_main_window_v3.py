@@ -112,13 +112,25 @@ class ModernAppV3(ctk.CTk):
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
         except FileNotFoundError:
+            # 🔥 СОЗДАТЬ ДЕФОЛТНЫЙ CONFIG И СОХРАНИТЬ В ФАЙЛ
             self.config = {
                 'octobrowser': {'api_base_url': 'https://app.octobrowser.net/api/v2/automation', 'api_token': ''},
                 'sms': {'provider': 'daisysms', 'api_key': '', 'service': 'ds'},
                 'proxy': {'enabled': False, 'type': 'http', 'host': '', 'port': '', 'login': '', 'password': ''},
+                'proxy_list': {'proxies': [], 'rotation_mode': 'sequential', 'retry_on_failure': True, 'timeout': 10},
+                'octo_defaults': {'tags': [], 'plugins': [], 'notes': ''},
+                'fingerprint': {'os': 'win', 'webrtc': 'altered', 'canvas_protection': True, 'webgl_protection': True, 'fonts_protection': True},
+                'geolocation': {'enabled': False, 'latitude': '', 'longitude': ''},
                 'ui_settings': {'last_csv_path': '', 'automation_framework': 'playwright', 'playwright_target': 'library'},
                 'script_settings': {'output_directory': 'generated_scripts', 'default_automation_framework': 'playwright'}
             }
+            # СОХРАНИТЬ ДЕФОЛТНЫЙ CONFIG В ФАЙЛ
+            try:
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.config, f, indent=2, ensure_ascii=False)
+                print(f"[CONFIG] Создан новый config.json с дефолтными настройками")
+            except Exception as e:
+                print(f"[CONFIG ERROR] Не удалось создать config.json: {e}")
 
     def save_config(self):
         """Сохранение конфигурации"""
