@@ -244,6 +244,57 @@ def stop_profile(profile_uuid: str) -> bool:
         return False
 
 
+def check_local_api() -> bool:
+    """
+    Проверить доступность локального API Octobrowser
+
+    ВАЖНО: Octobrowser desktop приложение ДОЛЖНО БЫТЬ ЗАПУЩЕНО для работы Local API!
+    Без запущенного Octobrowser профили не смогут открыться.
+
+    Returns:
+        bool: True если Local API доступен, False если нет
+    """
+    try:
+        print("[CHECK] Проверка доступности Octobrowser Local API...")
+        response = requests.get(f"{{LOCAL_API_URL}}/profiles", timeout=2)
+
+        if response.status_code in [200, 401, 403]:  # Любой ответ = API работает
+            print("[OK] ✅ Local API доступен (Octobrowser запущен)")
+            return True
+        else:
+            print(f"[WARNING] Local API вернул неожиданный статус: {{response.status_code}}")
+            return True  # Всё равно API работает, пусть попробует
+
+    except requests.exceptions.ConnectionError:
+        print("\\n" + "="*60)
+        print("❌ КРИТИЧЕСКАЯ ОШИБКА: OCTOBROWSER НЕ ЗАПУЩЕН!")
+        print("="*60)
+        print("")
+        print("Local API недоступен на http://localhost:58888/api")
+        print("")
+        print("РЕШЕНИЕ:")
+        print("1. Запустите приложение Octobrowser на вашем компьютере")
+        print("2. Убедитесь, что Octobrowser работает")
+        print("3. Запустите этот скрипт снова")
+        print("")
+        print("СПРАВКА:")
+        print("- Cloud API (создание профилей) работает через интернет")
+        print("- Local API (запуск профилей) требует запущенного Octobrowser")
+        print("- Без Local API профили будут создаваться, но НЕ запускаться")
+        print("")
+        print("="*60 + "\\n")
+        return False
+
+    except requests.exceptions.Timeout:
+        print("[ERROR] Timeout при проверке Local API (превышено время ожидания)")
+        print("Octobrowser может быть запущен, но не отвечает")
+        return False
+
+    except Exception as e:
+        print(f"[ERROR] Ошибка проверки Local API: {{e}}")
+        return False
+
+
 '''
 
     def _generate_sms_functions(self, sms_config: Dict) -> str:
@@ -574,6 +625,12 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
         # ВСЕГДА используем Octobrowser (CDP режим)
         # Target влияет только на парсинг импортированного скрипта, но не на выполнение
         browser_launch_code = f'''
+        # Проверить доступность Octobrowser Local API
+        if not check_local_api():
+            print("[ERROR] Octobrowser не запущен! Профили не смогут открыться.")
+            print("[ERROR] Итерация прервана.")
+            return False
+
         # Создать профиль
         profile_uuid = create_profile()
         if not profile_uuid:
