@@ -19,8 +19,9 @@ class OctobrowserAPI:
         """
         self.api_token = api_token
         self.base_url = base_url.rstrip('/')
+        # 🔥 ИСПРАВЛЕНО: Правильный заголовок для Octobrowser API
         self.headers = {
-            'X-Octo-Api-Token': api_token,
+            'X-Access-Token': api_token,  # Правильный заголовок согласно документации
             'Content-Type': 'application/json'
         }
 
