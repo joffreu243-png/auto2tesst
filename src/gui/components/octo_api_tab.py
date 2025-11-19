@@ -398,14 +398,18 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         try:
             # Прямой запрос с правильным заголовком X-Octo-Api-Token
             # Официальная документация: https://docs.octobrowser.net/
+            # Для теста подключения просто запрашиваем список профилей без параметров
             response = requests.get(
                 f"{base_url}/profiles",
                 headers={"X-Octo-Api-Token": token},
-                params={"limit": 1},
                 timeout=10
             )
 
             print(f"[DEBUG] Получен ответ: status_code={response.status_code}")  # DEBUG
+
+            # Вывод полного ответа для отладки 400 ошибок
+            if response.status_code == 400:
+                print(f"[DEBUG] Response body: {response.text}")  # DEBUG
 
             if response.status_code == 200:
                 print("[DEBUG] Успех! Показываю success toast")  # DEBUG
