@@ -28,13 +28,15 @@ class PlaywrightScriptGenerator:
         use_sms = config.get('use_sms', False)
         sms_config = config.get('sms', {})
         target = config.get('target', 'library')  # library или cdp
+        profile_config = config.get('profile', {})  # 🔥 НАСТРОЙКИ ПРОФИЛЯ ИЗ GUI
 
         # Генерация скрипта
         script = self._generate_imports()
         script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, use_sms, sms_config, target)
 
         # Добавить функции Octobrowser (всегда нужны для CDP подключения)
-        script += self._generate_octobrowser_functions()
+        # 🔥 ПЕРЕДАЁМ НАСТРОЙКИ ПРОФИЛЯ В ГЕНЕРАТОР
+        script += self._generate_octobrowser_functions(profile_config)
 
         # Добавить SMS функции если включено
         if use_sms:
@@ -114,35 +116,60 @@ SMS_API_BASE_URL = "https://daisysms.com/stubs/handler_api.php"
         config += '\n\n'
         return config
 
-    def _generate_octobrowser_functions(self) -> str:
+    def _generate_octobrowser_functions(self, profile_config: Dict = None) -> str:
         """Генерирует функции работы с Octobrowser API"""
-        return '''# ============================================================
+        if profile_config is None:
+            profile_config = {}
+
+        # Подготовить данные профиля из конфигурации GUI
+        import json
+        profile_data_str = json.dumps(profile_config, indent=8, ensure_ascii=False)
+
+        return f'''# ============================================================
 # ФУНКЦИИ OCTOBROWSER API
 # ============================================================
 
 def create_profile() -> Optional[str]:
     """Создание профиля через Octobrowser API"""
-    url = f"{API_BASE_URL}/profiles"
+    url = f"{{API_BASE_URL}}/profiles"
     # 🔥 ПРАВИЛЬНЫЙ заголовок согласно официальной документации
     # https://docs.octobrowser.net/
     # > All requests require authentication via API token in the X-Octo-Api-Token header
-    headers = {"X-Octo-Api-Token": API_TOKEN}
+    headers = {{"X-Octo-Api-Token": API_TOKEN}}
 
-    profile_data = {
-        "title": f"AutoProfile_{int(time.time())}",
-        "fingerprint": {"os": "win"}  # ОБЯЗАТЕЛЬНОЕ ПОЛЕ для создания профиля
-    }
+    # 🔥 НАСТРОЙКИ ПРОФИЛЯ ИЗ GUI (Octo API Tab)
+    profile_data = {{
+        "title": f"AutoProfile_{{int(time.time())}}",
+        "fingerprint": {profile_config.get('fingerprint', {{"os": "win"}})},
+    }}
+
+    # Добавить теги если указаны
+    tags = {profile_config.get('tags', [])}
+    if tags:
+        profile_data["tags"] = tags
+        print(f"[TAGS] Установлены теги: {{tags}}")
+
+    # Добавить заметки если указаны
+    notes = {repr(profile_config.get('notes', ''))}
+    if notes:
+        profile_data["notes"] = notes
+
+    # Добавить geolocation если включено
+    geolocation = {profile_config.get('geolocation')}
+    if geolocation:
+        profile_data["geolocation"] = geolocation
+        print(f"[GEO] Установлена геолокация: {{geolocation.get('latitude')}}, {{geolocation.get('longitude')}}")
 
     # Добавить прокси если включено
     if USE_PROXY:
-        profile_data["proxy"] = {
+        profile_data["proxy"] = {{
             "type": PROXY_TYPE,
             "host": PROXY_HOST,
             "port": PROXY_PORT,
             "login": PROXY_LOGIN,
             "password": PROXY_PASSWORD
-        }
-        print(f"[PROXY] Установлен прокси: {PROXY_TYPE}://{PROXY_HOST}:{PROXY_PORT}")
+        }}
+        print(f"[PROXY] Установлен прокси: {{PROXY_TYPE}}://{{PROXY_HOST}}:{{PROXY_PORT}}")
 
     try:
         response = requests.post(url, headers=headers, json=profile_data)

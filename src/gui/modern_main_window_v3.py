@@ -646,6 +646,9 @@ class ModernAppV3(ctk.CTk):
         print("[DEBUG] generate_playwright_script() вызван")  # DEBUG
 
         try:
+            # 🔥 ПОЛУЧИТЬ НАСТРОЙКИ ПРОФИЛЯ ИЗ OCTO API TAB
+            profile_config = self.octo_tab_widget.get_profile_config()
+
             # Собрать конфигурацию из всех табов
             config = {
                 'api_token': self.config.get('octobrowser', {}).get('api_token', ''),
@@ -654,10 +657,13 @@ class ModernAppV3(ctk.CTk):
                 'use_proxy': self.config.get('proxy', {}).get('enabled', False),
                 'proxy': self.config.get('proxy', {}),
                 'use_sms': False,  # Пока отключено
-                'sms': self.config.get('sms', {})
+                'sms': self.config.get('sms', {}),
+                # 🔥 ДОБАВЛЯЕМ НАСТРОЙКИ ПРОФИЛЯ
+                'profile': profile_config
             }
 
             print(f"[DEBUG] API Token: {config['api_token'][:10]}..." if config['api_token'] else "[DEBUG] API Token: пуст")  # DEBUG
+            print(f"[DEBUG] Profile config: tags={profile_config.get('tags')}, os={profile_config.get('fingerprint', {}).get('os')}")  # DEBUG
 
             # Проверка токена
             if not config['api_token']:
