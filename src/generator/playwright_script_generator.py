@@ -695,6 +695,7 @@ def run_automation_iteration(iteration_number: int, data_row: Dict):
     browser = None
     context = None
     page = None
+    sms_activation_id = None  # 🔥 ВСЕГДА определяем, даже если SMS отключен
 
     print("\\n" + "="*60)
     print(f"Итерация #{{iteration_number}}")
