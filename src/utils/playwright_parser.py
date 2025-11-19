@@ -102,6 +102,13 @@ class PlaywrightParser:
         current_alternative_group = []
         current_alternative_variant = []
 
+        # === OCTO BROWSER POPUP HANDLER ===
+        # Переменные для отслеживания блоков с попапами
+        in_popup_block = False
+        popup_info_var = None
+        popup_trigger_lines = []
+        popup_base_indent = 0
+
         for i, line in enumerate(lines):
             line = line.strip()
 
@@ -160,6 +167,53 @@ class PlaywrightParser:
                 else:
                     actions.append(action)
                 continue
+
+            # === OCTO BROWSER POPUP HANDLER ===
+            # Обработка with page.expect_popup()
+            original_line = lines[i]
+
+            # Начало popup блока
+            popup_match = re.search(r'^\s*with\s+page\.expect_popup\(\)\s+as\s+(\w+):', original_line)
+            if popup_match:
+                in_popup_block = True
+                popup_info_var = popup_match.group(1)
+                popup_trigger_lines = []
+                popup_base_indent = len(original_line) - len(original_line.lstrip())
+                continue
+
+            # Внутри popup блока - собираем trigger действия
+            if in_popup_block:
+                current_indent = len(original_line) - len(original_line.lstrip())
+
+                # Если отступ вернулся на уровень with или меньше - блок закончился
+                if current_indent <= popup_base_indent and line:
+                    # Проверяем, это pageX = xxx_info.value?
+                    value_match = re.search(rf'^\s*(\w+)\s*=\s*{re.escape(popup_info_var)}\.value', original_line)
+                    if value_match:
+                        page_var = value_match.group(1)
+
+                        # Создаем action для popup
+                        action = {
+                            'type': 'popup',
+                            'page_var': page_var,
+                            'trigger_lines': popup_trigger_lines,
+                            'line': i
+                        }
+                        if in_alternative_block:
+                            current_alternative_variant.append(action)
+                        else:
+                            actions.append(action)
+
+                    # Выходим из popup блока
+                    in_popup_block = False
+                    popup_info_var = None
+                    popup_trigger_lines = []
+                    # Не continue - обработаем эту строку как обычно
+                else:
+                    # Внутри блока - сохраняем строку trigger
+                    if line:  # Пропускаем пустые строки
+                        popup_trigger_lines.append(line)
+                    continue
 
             # Пропустить обычные комментарии и пустые строки
             if not line or line.startswith('#') or line.startswith('//'):
@@ -570,6 +624,44 @@ class PlaywrightParser:
         code_lines.append('# === END RANDOM ANSWER SUPPORT ===')
         code_lines.append('')
 
+        # === OCTO BROWSER POPUP HANDLER ADDED ===
+        code_lines.append('# === OCTO BROWSER POPUP HANDLER ===')
+        code_lines.append('# Универсальный обработчик новых вкладок для Octo Browser')
+        code_lines.append('def wait_and_switch_to_popup(trigger_action=None, timeout=15000):')
+        code_lines.append('    """Надёжное переключение на новую вкладку в Octo Browser"""')
+        code_lines.append('    print("[POPUP] Ожидаю открытия новой вкладки...")')
+        code_lines.append('    before_pages = len(context.pages)')
+        code_lines.append('    ')
+        code_lines.append('    # Выполнить действие, которое откроет попап')
+        code_lines.append('    if trigger_action:')
+        code_lines.append('        trigger_action()')
+        code_lines.append('    ')
+        code_lines.append('    # Ждём появления новой вкладки (polling)')
+        code_lines.append('    import time')
+        code_lines.append('    start_time = time.time()')
+        code_lines.append('    while len(context.pages) <= before_pages:')
+        code_lines.append('        if (time.time() - start_time) * 1000 > timeout:')
+        code_lines.append('            raise Exception(f"[POPUP] Новая вкладка не открылась за {timeout}ms")')
+        code_lines.append('        time.sleep(0.1)')
+        code_lines.append('    ')
+        code_lines.append('    # Берём последнюю открывшуюся вкладку')
+        code_lines.append('    new_page = context.pages[-1]')
+        code_lines.append('    ')
+        code_lines.append('    # Проверка что это действительно новая вкладка')
+        code_lines.append('    if new_page == page:')
+        code_lines.append('        new_page = context.pages[-2] if len(context.pages) > 1 else context.pages[-1]')
+        code_lines.append('    ')
+        code_lines.append('    # Гарантированно активируем и ждём загрузки')
+        code_lines.append('    new_page.bring_to_front()')
+        code_lines.append('    time.sleep(0.5)  # Дать время браузеру переключиться')
+        code_lines.append('    new_page.wait_for_load_state("domcontentloaded", timeout=20000)')
+        code_lines.append('    print(f"[POPUP] Переключились на новую вкладку: {new_page.url}")')
+        code_lines.append('    ')
+        code_lines.append('    return new_page')
+        code_lines.append('')
+        code_lines.append('# === END OCTO BROWSER POPUP HANDLER ===')
+        code_lines.append('')
+
         for action in actions:
             if action['type'] == 'goto':
                 code_lines.append(f'# Переход на страницу')
@@ -627,6 +719,32 @@ class PlaywrightParser:
 
                 code_lines.append('if not alternative_success:')
                 code_lines.append('    print("[ALTERNATIVE] [WARNING] Ни один из вариантов не сработал, продолжаем...")')
+                code_lines.append('')
+
+            elif action['type'] == 'popup':
+                # === OCTO BROWSER POPUP HANDLER ===
+                # Генерация кода для обработки попапов
+                page_var = action['page_var']
+                trigger_lines = action['trigger_lines']
+
+                code_lines.append(f'# Открытие новой вкладки (popup)')
+                code_lines.append(f'{page_var} = wait_and_switch_to_popup(')
+                code_lines.append(f'    trigger_action=lambda: (')
+
+                # Добавить trigger действия (преобразовать sync в async не нужно, т.к. это lambda)
+                for idx, trigger_line in enumerate(trigger_lines):
+                    # Удалить await если есть (внутри lambda не работает)
+                    clean_line = trigger_line.replace('await ', '')
+                    if idx == len(trigger_lines) - 1:
+                        # Последняя строка без запятой
+                        code_lines.append(f'        {clean_line}')
+                    else:
+                        # Промежуточные строки с запятой
+                        code_lines.append(f'        {clean_line},')
+
+                code_lines.append(f'    )')
+                code_lines.append(f')')
+                code_lines.append(f'print(f"[POPUP] Переключились на новую вкладку {{page_var}}: {{{page_var}.url}}")')
                 code_lines.append('')
 
             elif action['type'] == 'click':
@@ -1047,6 +1165,97 @@ class PlaywrightParser:
                     return (i, min_opt, max_opt)
 
         return None
+
+    def _transform_popup_handlers(self, code: str) -> str:
+        """
+        === OCTO BROWSER POPUP HANDLER ADDED ===
+        Находит конструкции with page.expect_popup() и заменяет на wait_and_switch_to_popup()
+
+        Было:
+            with page.expect_popup() as page1_info:
+                page.get_by_role("button", name="View quotes").click()
+            page1 = page1_info.value
+
+        Стало:
+            page1 = wait_and_switch_to_popup(
+                trigger_action=lambda: smart_click_button("View quotes")
+            )
+        """
+        lines = code.split('\n')
+        i = 0
+        result_lines = []
+        skip_until = -1
+
+        while i < len(lines):
+            # Пропустить строки, которые уже обработаны
+            if i <= skip_until:
+                i += 1
+                continue
+
+            line = lines[i]
+
+            # Ищем конструкцию with page.expect_popup() as xxx_info:
+            popup_match = re.search(r'^\s*with\s+page\.expect_popup\(\)\s+as\s+(\w+):', line)
+
+            if popup_match:
+                info_var = popup_match.group(1)  # например: page1_info
+                base_indent = len(line) - len(line.lstrip())
+
+                # Собрать все строки внутри with блока
+                trigger_lines = []
+                j = i + 1
+                while j < len(lines):
+                    next_line = lines[j]
+                    if not next_line.strip():
+                        # Пустая строка - пропустить
+                        j += 1
+                        continue
+
+                    line_indent = len(next_line) - len(next_line.lstrip())
+                    if line_indent <= base_indent:
+                        # Конец with блока
+                        break
+
+                    # Это строка внутри with - добавить
+                    trigger_lines.append(next_line.strip())
+                    j += 1
+
+                # Теперь ищем строку pageX = xxx_info.value
+                value_line_idx = -1
+                page_var = None
+
+                # Проверить следующие несколько строк после with блока
+                for k in range(j, min(j + 5, len(lines))):
+                    value_match = re.search(rf'^\s*(\w+)\s*=\s*{re.escape(info_var)}\.value', lines[k])
+                    if value_match:
+                        page_var = value_match.group(1)  # например: page1
+                        value_line_idx = k
+                        break
+
+                if page_var and trigger_lines:
+                    # ТРАНСФОРМАЦИЯ НАЙДЕНА!
+                    # Создать lambda из trigger_lines
+                    if len(trigger_lines) == 1:
+                        trigger_action = trigger_lines[0]
+                    else:
+                        # Несколько строк - объединить
+                        trigger_action = '; '.join(trigger_lines)
+
+                    # Заменить на wait_and_switch_to_popup
+                    result_lines.append(f'{" " * base_indent}{page_var} = wait_and_switch_to_popup(')
+                    result_lines.append(f'{" " * (base_indent + 4)}trigger_action=lambda: {trigger_action}')
+                    result_lines.append(f'{" " * base_indent})')
+
+                    # Пропустить все строки до конца value assignment
+                    skip_until = value_line_idx
+                    i += 1
+                    continue
+
+            # Если не нашли паттерн - оставить строку как есть
+            result_lines.append(line)
+            i += 1
+
+        return '\n'.join(result_lines)
 
     def _is_button_click(self, selector_code: str) -> bool:
         """
