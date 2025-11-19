@@ -515,6 +515,18 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         if profile_config.get('geolocation'):
             profile_data["geolocation"] = profile_config['geolocation']
 
+        # 🔥 ДОБАВИТЬ ПРОКСИ ЕСЛИ ВКЛЮЧЕНО
+        if self.config.get('proxy', {}).get('enabled', False):
+            proxy_config = self.config.get('proxy', {})
+            profile_data["proxy"] = {
+                "type": proxy_config.get('type', 'http'),
+                "host": proxy_config.get('host', ''),
+                "port": proxy_config.get('port', ''),
+                "login": proxy_config.get('login', ''),
+                "password": proxy_config.get('password', '')
+            }
+            print(f"[TEST_PROFILE] 🌐 Добавлен прокси: {proxy_config.get('type')}://{proxy_config.get('host')}:{proxy_config.get('port')}")
+
         try:
             print(f"[TEST_PROFILE] Отправка запроса на создание профиля...")
             print(f"[TEST_PROFILE] URL: {base_url}/profiles")

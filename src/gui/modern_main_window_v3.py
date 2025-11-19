@@ -82,6 +82,8 @@ class ModernAppV3(ctk.CTk):
         # Данные импорта
         self.imported_data = None
         self.csv_data_rows = []
+        self.csv_file_path = None  # 🔥 Путь к загруженному CSV
+        self.csv_embed_mode = True  # 🔥 Режим встраивания CSV в скрипт (True = встроить данные, False = использовать путь)
 
         # === TOAST MANAGER (создаём ДО create_ui!) ===
         self.toast = ToastManager(self)
@@ -385,7 +387,7 @@ class ModernAppV3(ctk.CTk):
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
         btn_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=24)
         btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # 🔥 6 кнопок
 
         # 🔥 НОВАЯ КНОПКА: Generate Script
         ctk.CTkButton(
@@ -440,6 +442,17 @@ class ModernAppV3(ctk.CTk):
             fg_color=self.theme['accent_secondary'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
         ).grid(row=0, column=4, padx=8, sticky="ew")
+
+        # 🔥 НОВАЯ КНОПКА: Load CSV
+        ctk.CTkButton(
+            btn_frame,
+            text="📂 CSV",
+            command=self.load_csv,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_warning'],
+            font=(ModernTheme.FONT['family'], 14, 'bold')
+        ).grid(row=0, column=5, padx=8, sticky="ew")
 
         # Code editor
         editor_container = ctk.CTkFrame(
@@ -718,9 +731,12 @@ class ModernAppV3(ctk.CTk):
             if not csv_path or csv_path.strip() == '':
                 csv_path = 'data.csv'  # Default если пусто
 
+            # 🔥 КРЕАТИВНОЕ РЕШЕНИЕ: CSV данные или путь
             config = {
                 'api_token': self.config.get('octobrowser', {}).get('api_token', ''),
                 'csv_filename': csv_path,
+                'csv_data': self.csv_data_rows if self.csv_data_rows else None,  # 🔥 Встроенные данные
+                'csv_embed_mode': self.csv_embed_mode,  # 🔥 Режим встраивания
                 'target': 'library',  # По умолчанию library mode
                 'use_proxy': self.config.get('proxy', {}).get('enabled', False),
                 'proxy': self.config.get('proxy', {}),
@@ -887,6 +903,51 @@ class ModernAppV3(ctk.CTk):
             self.toast.info("🔄 Скрипт перезагружен")
         else:
             self.toast.warning("Нет импортированного кода")
+
+    def load_csv(self):
+        """🔥 Загрузить CSV файл с данными"""
+        filepath = filedialog.askopenfilename(
+            title="Выберите CSV файл",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        try:
+            import csv
+            # Читаем CSV
+            with open(filepath, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+
+            if not rows:
+                self.toast.warning("⚠️ CSV файл пуст")
+                return
+
+            # Сохраняем данные
+            self.csv_data_rows = rows
+            self.csv_file_path = filepath
+
+            # Сохраняем в конфигурацию
+            if 'ui_settings' not in self.config:
+                self.config['ui_settings'] = {}
+            self.config['ui_settings']['last_csv_path'] = filepath
+            self.save_config()
+
+            # Уведомление
+            filename = Path(filepath).name
+            self.toast.success(f"📂 Загружено: {filename} ({len(rows)} строк)")
+            self.append_log(f"[CSV] Загружен файл: {filename}, строк: {len(rows)}", "SUCCESS")
+
+            # Показать первую строку для проверки
+            if rows:
+                fields = list(rows[0].keys())
+                self.append_log(f"[CSV] Поля: {', '.join(fields)}", "DATA")
+
+        except Exception as e:
+            self.toast.error(f"❌ Ошибка загрузки CSV: {e}")
+            self.append_log(f"[ERROR] CSV: {e}", "ERROR")
 
     # ========================================================================
     # ЛОГИ

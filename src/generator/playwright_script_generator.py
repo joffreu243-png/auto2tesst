@@ -25,6 +25,8 @@ class PlaywrightScriptGenerator:
         use_proxy = config.get('use_proxy', False)
         proxy_config = config.get('proxy', {})
         csv_filename = config.get('csv_filename', 'data.csv')
+        csv_data = config.get('csv_data', None)  # 🔥 Встроенные CSV данные
+        csv_embed_mode = config.get('csv_embed_mode', True)  # 🔥 Режим встраивания
         use_sms = config.get('use_sms', False)
         sms_config = config.get('sms', {})
         target = config.get('target', 'library')  # library или cdp
@@ -32,7 +34,7 @@ class PlaywrightScriptGenerator:
 
         # Генерация скрипта
         script = self._generate_imports()
-        script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, use_sms, sms_config, target)
+        script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, csv_data, csv_embed_mode, use_sms, sms_config, target)
 
         # Добавить функции Octobrowser (всегда нужны для CDP подключения)
         # 🔥 ПЕРЕДАЁМ НАСТРОЙКИ ПРОФИЛЯ В ГЕНЕРАТОР
@@ -67,7 +69,8 @@ from typing import Dict, List, Optional
 '''
 
     def _generate_config(self, api_token: str, proxy_config: Dict, use_proxy: bool,
-                         csv_filename: str, use_sms: bool, sms_config: Dict, target: str) -> str:
+                         csv_filename: str, csv_data: List[Dict], csv_embed_mode: bool,
+                         use_sms: bool, sms_config: Dict, target: str) -> str:
         """Генерирует конфигурацию"""
         config = f'''# ============================================================
 # КОНФИГУРАЦИЯ
@@ -81,10 +84,26 @@ API_BASE_URL = "https://app.octobrowser.net/api/v2/automation"
 API_TOKEN = "{api_token}"
 LOCAL_API_URL = "http://localhost:58888/api"
 
-# CSV файл с данными
+'''
+
+        # 🔥 КРЕАТИВНОЕ РЕШЕНИЕ: Встроенные CSV данные или путь к файлу
+        if csv_embed_mode and csv_data:
+            # Встроить CSV данные прямо в скрипт
+            import json
+            config += f'''# 🔥 CSV данные (встроены в скрипт)
+CSV_EMBED_MODE = True
+CSV_DATA = {json.dumps(csv_data, ensure_ascii=False, indent=2)}
+
+'''
+        else:
+            # Использовать путь к файлу
+            config += f'''# CSV файл с данными
+CSV_EMBED_MODE = False
 CSV_FILENAME = "{csv_filename}"
 
-# Прокси настройки
+'''
+
+        config += f'''# Прокси настройки
 USE_PROXY = {use_proxy}
 '''
 
@@ -487,9 +506,26 @@ def cancel_sms_activation(activation_id: str) -> bool:
 # ЗАГРУЗКА ДАННЫХ ИЗ CSV
 # ============================================================
 
-def load_data_from_csv(filename: str) -> List[Dict]:
-    """Загружает данные из CSV файла"""
+def load_data_from_csv(filename: str = None) -> List[Dict]:
+    """
+    Загружает данные из CSV файла или использует встроенные данные
+
+    🔥 КРЕАТИВНОЕ РЕШЕНИЕ:
+    - Если CSV_EMBED_MODE=True, использует встроенные CSV_DATA
+    - Если CSV_EMBED_MODE=False, читает файл CSV_FILENAME
+    """
     try:
+        # 🔥 Режим 1: Встроенные данные (CSV уже в скрипте)
+        if CSV_EMBED_MODE:
+            data_rows = CSV_DATA
+            print(f"[OK] ✅ Используются встроенные CSV данные")
+            print(f"Загружено {len(data_rows)} строк данных")
+            return data_rows
+
+        # 🔥 Режим 2: Чтение из файла (классический способ)
+        if filename is None:
+            filename = CSV_FILENAME
+
         data_rows = []
         with open(filename, 'r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -509,9 +545,13 @@ def load_data_from_csv(filename: str) -> List[Dict]:
         return []
 
 
-def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = None, otp_code: Optional[str] = None):
+def update_csv_row(filename: str = None, row_index: int = 0, phone_number: Optional[str] = None, otp_code: Optional[str] = None):
     """
     Обновить строку CSV файла с реальными значениями phone_number и otp_code
+
+    🔥 КРЕАТИВНОЕ РЕШЕНИЕ:
+    - Если CSV_EMBED_MODE=True, пропускает обновление (данные встроены)
+    - Если CSV_EMBED_MODE=False, обновляет файл
 
     Args:
         filename: Имя CSV файла
@@ -520,6 +560,10 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
         otp_code: Новое значение для колонки otp_code
     """
     try:
+        # 🔥 Режим 1: Встроенные данные - обновление невозможно
+        if CSV_EMBED_MODE:
+            print(f"[CSV] ⚠️ Режим встроенных данных - запись в CSV пропущена")
+            return
         # Читаем весь CSV
         rows = []
         fieldnames = []
@@ -608,7 +652,7 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
                 print(f"[SMS] [OK] Activation ID: {sms_activation_id}")
 
                 # ЗАПИСЬ В CSV: сохранить полученный номер для логирования
-                update_csv_row(CSV_FILENAME, iteration_number - 1, phone_number=data_row['phone_number'])
+                update_csv_row(row_index=iteration_number - 1, phone_number=data_row['phone_number'])  # 🔥 Автовыбор режима
             else:
                 # FAIL-FAST: НЕ ЗАПУСКАЕМ СКРИПТ БЕЗ НОМЕРА!
                 print("[CRITICAL] ==========================================")
@@ -748,8 +792,8 @@ def run_automation_iteration(iteration_number: int, data_row: Dict):
 def main():
     """Главная функция с мультизапуском"""
     try:
-        # Загрузить данные из CSV
-        data_rows = load_data_from_csv(CSV_FILENAME)
+        # Загрузить данные из CSV (встроенные или из файла)
+        data_rows = load_data_from_csv()  # 🔥 Автоматически выберет режим
 
         if not data_rows:
             print("[ERROR] Нет данных для обработки!")
