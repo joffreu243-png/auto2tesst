@@ -83,12 +83,12 @@ class ModernAppV3(ctk.CTk):
         self.imported_data = None
         self.csv_data_rows = []
 
-        # === СОЗДАНИЕ UI ===
-        self.create_ui()
-
-        # === TOAST MANAGER ===
+        # === TOAST MANAGER (создаём ДО create_ui!) ===
         self.toast = ToastManager(self)
         self.toast.place_container(relx=0.98, rely=0.98, anchor="se")
+
+        # === СОЗДАНИЕ UI ===
+        self.create_ui()
 
         # === ГОРЯЧИЕ КЛАВИШИ ===
         self.setup_hotkeys()
