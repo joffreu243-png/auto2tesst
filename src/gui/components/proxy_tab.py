@@ -323,6 +323,7 @@ class ProxyTab(ctk.CTkFrame):
             if proxy_string:
                 self._add_proxy_widget(proxy_string)
                 self.update_count()
+                self.save_proxies()  # 🔥 Автоматически сохранить и синхронизировать
 
                 if self.toast:
                     self.toast.success("Прокси добавлен")
@@ -356,6 +357,7 @@ class ProxyTab(ctk.CTkFrame):
                 widget.row_index = i
 
             self.update_count()
+            self.save_proxies()  # 🔥 Автоматически сохранить и синхронизировать
 
             if self.toast:
                 self.toast.success("Прокси удалён")
@@ -384,6 +386,7 @@ class ProxyTab(ctk.CTkFrame):
                         imported_count += 1
 
                 self.update_count()
+                self.save_proxies()  # 🔥 Автоматически сохранить и синхронизировать
 
                 if self.toast:
                     self.toast.success(f"Импортировано {imported_count} прокси из {Path(filepath).name}")
