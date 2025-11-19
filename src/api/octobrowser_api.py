@@ -19,9 +19,11 @@ class OctobrowserAPI:
         """
         self.api_token = api_token
         self.base_url = base_url.rstrip('/')
-        # 🔥 ИСПРАВЛЕНО 2025: Bearer auth согласно актуальной документации
+        # 🔥 ИСПРАВЛЕНО 2025: ТОЛЬКО X-Access-Token согласно официальной документации!
+        # https://documenter.getpostman.com/view/1801428/UVC6i6eA
+        # https://docs.octobrowser.net/llms.txt
         self.headers = {
-            'Authorization': f'Bearer {api_token}',  # Bearer auth как в документации 2025
+            'X-Access-Token': api_token,  # ПРАВИЛЬНЫЙ заголовок Octo Browser API
             'Content-Type': 'application/json'
         }
 

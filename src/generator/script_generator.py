@@ -84,7 +84,7 @@ def create_profile():
     import requests
 
     headers = {
-        'X-Octo-Api-Token': API_TOKEN,
+        'X-Access-Token': API_TOKEN,
         'Content-Type': 'application/json'
     }
 
@@ -183,7 +183,7 @@ def check_profile_exists(profile_uuid):
     import requests
 
     headers = {
-        'X-Octo-Api-Token': API_TOKEN,
+        'X-Access-Token': API_TOKEN,
         'Content-Type': 'application/json'
     }
 
@@ -375,7 +375,7 @@ def add_cookies(profile_uuid, cookies):
     import requests
 
     headers = {
-        'X-Octo-Api-Token': API_TOKEN,
+        'X-Access-Token': API_TOKEN,
         'Content-Type': 'application/json'
     }
 
@@ -406,7 +406,7 @@ def add_bookmarks(profile_uuid, bookmarks):
     import requests
 
     headers = {
-        'X-Octo-Api-Token': API_TOKEN,
+        'X-Access-Token': API_TOKEN,
         'Content-Type': 'application/json'
     }
 
@@ -437,7 +437,7 @@ def add_extension(profile_uuid, extension_path):
     import requests
 
     headers = {
-        'X-Octo-Api-Token': API_TOKEN,
+        'X-Access-Token': API_TOKEN,
         'Content-Type': 'application/json'
     }
 

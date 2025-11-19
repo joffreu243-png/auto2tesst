@@ -29,8 +29,10 @@ CSV_FILENAME = "data.csv"
 
 def create_profile():
     """Создать новый профиль через Octo API"""
+    # 🔥 ПРАВИЛЬНЫЙ заголовок: X-Access-Token (НЕ Authorization: Bearer!)
+    # https://documenter.getpostman.com/view/1801428/UVC6i6eA
     headers = {
-        'Authorization': f'Bearer {OCTO_API_TOKEN}',
+        'X-Access-Token': OCTO_API_TOKEN,
         'Content-Type': 'application/json'
     }
 
@@ -52,7 +54,7 @@ def create_profile():
 def start_profile(uuid: str):
     """Запустить профиль и получить debug_port"""
     headers = {
-        'Authorization': f'Bearer {OCTO_API_TOKEN}'
+        'X-Access-Token': OCTO_API_TOKEN
     }
 
     response = requests.get(
@@ -67,7 +69,7 @@ def start_profile(uuid: str):
 def stop_profile(uuid: str):
     """Остановить профиль"""
     headers = {
-        'Authorization': f'Bearer {OCTO_API_TOKEN}'
+        'X-Access-Token': OCTO_API_TOKEN
     }
 
     requests.get(f"{OCTO_API_BASE_URL}/profiles/{uuid}/stop", headers=headers)

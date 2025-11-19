@@ -371,6 +371,8 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
     def test_connection(self):
         """Тестировать подключение к API"""
+        import requests
+
         token = self.token_entry.get().strip()
         base_url = self.base_url_entry.get().strip()
 
@@ -383,18 +385,33 @@ class OctoAPITab(ctk.CTkScrollableFrame):
             self.toast.info("Тестирую подключение...")
 
         try:
-            from ...api.octobrowser_api import OctobrowserAPI
+            # Прямой запрос с правильным заголовком X-Access-Token
+            response = requests.get(
+                f"{base_url}/profiles",
+                headers={"X-Access-Token": token},
+                params={"limit": 1},
+                timeout=10
+            )
 
-            api = OctobrowserAPI(token, base_url)
-            result = api.get_profiles(page=0, page_len=1)
-
-            if 'error' in result:
+            if response.status_code == 200:
                 if self.toast:
-                    self.toast.error(f"Ошибка API: {result.get('error', 'Unknown error')}")
+                    self.toast.success("✅ Octo API подключён успешно!")
+            elif response.status_code == 401:
+                if self.toast:
+                    self.toast.error("❌ Неверный токен (401 Unauthorized)")
+            elif response.status_code == 403:
+                if self.toast:
+                    self.toast.error("❌ Доступ запрещён (403 Forbidden)")
             else:
                 if self.toast:
-                    self.toast.success("✅ Подключение успешно!")
+                    self.toast.error(f"Ошибка {response.status_code}: {response.text[:100]}")
 
+        except requests.exceptions.ConnectionError:
+            if self.toast:
+                self.toast.error("❌ Нет соединения с Octo Browser")
+        except requests.exceptions.Timeout:
+            if self.toast:
+                self.toast.error("❌ Превышено время ожидания")
         except Exception as e:
             if self.toast:
                 self.toast.error(f"Ошибка: {str(e)}")
