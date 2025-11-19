@@ -518,10 +518,10 @@ class PlaywrightParser:
         var_index = 0
 
         # === SMART BUTTON HANDLER ADDED ===
-        # Добавить определение вспомогательной async функции smart_click_button в начало
+        # Добавить определение вспомогательной SYNC функции smart_click_button в начало
         code_lines.append('# === SMART BUTTON CLICK HANDLER ===')
         code_lines.append('# Функция для устойчивого клика по кнопкам (независимо от порядка появления)')
-        code_lines.append('def smart_click_button(name: str, exact: bool = False):')
+        code_lines.append('def smart_click_button(page, name: str, exact: bool = False):')
         code_lines.append('    """Умный клик по кнопке с ожиданием появления"""')
         code_lines.append('    locator = page.get_by_role("button", name=name, exact=exact)')
         code_lines.append('    try:')
@@ -539,14 +539,14 @@ class PlaywrightParser:
         # === SMART QUESTION-ANSWER HANDLER ADDED ===
         code_lines.append('# === SMART QUESTION-ANSWER HANDLER ===')
         code_lines.append('# Функция для устойчивого ответа на вопросы (клик по heading → ответ на button)')
-        code_lines.append('def answer_question(heading: str, answer_button: str, exact: bool = False):')
+        code_lines.append('def answer_question(page, heading: str, answer_button: str, exact: bool = False):')
         code_lines.append('    """Ждёт появления вопроса (heading) и кликает по кнопке ответа"""')
         code_lines.append('    print(f"[ANSWER] Жду вопрос: {heading}")')
         code_lines.append('    heading_locator = page.get_by_role("heading", name=heading, exact=True)')
         code_lines.append('    try:')
         code_lines.append('        heading_locator.wait_for(state="visible", timeout=35000)')
         code_lines.append('        print(f"[ANSWER] Вопрос появился: {heading} → отвечаю: {answer_button}")')
-        code_lines.append('        smart_click_button(answer_button, exact=exact)')
+        code_lines.append('        smart_click_button(page, answer_button, exact=exact)')
         code_lines.append('    except Exception as e:')
         code_lines.append('        print(f"[ANSWER] Вопрос \'{heading}\' не появился за 35 сек: {e}")')
         code_lines.append('')
@@ -557,6 +557,7 @@ class PlaywrightParser:
         code_lines.append('# === RANDOM ANSWER SUPPORT ===')
         code_lines.append('# Функция для случайного ответа на вопрос (обход A/B тестов и антиботов)')
         code_lines.append('def answer_question_random(')
+        code_lines.append('    page,')
         code_lines.append('    heading: str,')
         code_lines.append('    min_options: int = 1,')
         code_lines.append('    max_options: int = 100')
@@ -627,7 +628,7 @@ class PlaywrightParser:
         # === OCTO BROWSER POPUP HANDLER ADDED ===
         code_lines.append('# === OCTO BROWSER POPUP HANDLER ===')
         code_lines.append('# Универсальный обработчик новых вкладок для Octo Browser')
-        code_lines.append('def wait_and_switch_to_popup(trigger_action=None, timeout=15000):')
+        code_lines.append('def wait_and_switch_to_popup(page, context, trigger_action=None, timeout=15000):')
         code_lines.append('    """Надёжное переключение на новую вкладку в Octo Browser"""')
         code_lines.append('    print("[POPUP] Ожидаю открытия новой вкладки...")')
         code_lines.append('    before_pages = len(context.pages)')
@@ -728,7 +729,7 @@ class PlaywrightParser:
                 trigger_lines = action['trigger_lines']
 
                 code_lines.append(f'# Открытие новой вкладки (popup)')
-                code_lines.append(f'{page_var} = wait_and_switch_to_popup(')
+                code_lines.append(f'{page_var} = wait_and_switch_to_popup(page, context,')
                 code_lines.append(f'    trigger_action=lambda: (')
 
                 # Добавить trigger действия (преобразовать sync в async не нужно, т.к. это lambda)
@@ -763,9 +764,9 @@ class PlaywrightParser:
                     if button_name:
                         code_lines.append(f'# Умный клик по кнопке: {button_name}')
                         if exact:
-                            code_lines.append(f'smart_click_button("{button_name}", exact=True)')
+                            code_lines.append(f'smart_click_button(page, "{button_name}", exact=True)')
                         else:
-                            code_lines.append(f'smart_click_button("{button_name}")')
+                            code_lines.append(f'smart_click_button(page, "{button_name}")')
                         code_lines.append('')
                     else:
                         # Fallback если не смогли извлечь параметры
@@ -969,9 +970,9 @@ class PlaywrightParser:
                                 # Добавить answer_question вместо пары
                                 result_lines.append('# Ответ на вопрос (heading → button)')
                                 if exact:
-                                    result_lines.append(f'answer_question("{heading_text}", "{button_text}", exact=True)')
+                                    result_lines.append(f'answer_question(page, "{heading_text}", "{button_text}", exact=True)')
                                 else:
-                                    result_lines.append(f'answer_question("{heading_text}", "{button_text}")')
+                                    result_lines.append(f'answer_question(page, "{heading_text}", "{button_text}")')
                                 result_lines.append('')
 
                                 i += 1
@@ -1130,10 +1131,10 @@ class PlaywrightParser:
                                 result_lines.append('# Случайный ответ на вопрос (heading → #random)')
                                 if min_opt == 1 and max_opt == 100:
                                     # Стандартные параметры - не указываем
-                                    result_lines.append(f'answer_question_random("{heading_text}")')
+                                    result_lines.append(f'answer_question_random(page, "{heading_text}")')
                                 else:
                                     # Кастомные параметры
-                                    result_lines.append(f'answer_question_random("{heading_text}", min_options={min_opt}, max_options={max_opt})')
+                                    result_lines.append(f'answer_question_random(page, "{heading_text}", min_options={min_opt}, max_options={max_opt})')
                                 result_lines.append('')
 
                                 i += 1

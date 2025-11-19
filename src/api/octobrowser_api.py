@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any
 class OctobrowserAPI:
     """Класс для взаимодействия с Octobrowser API"""
 
-    def __init__(self, api_token: str, base_url: str = "https://app.octobrowser.net/api/v2/automation"):
+    def __init__(self, api_token: str, base_url: str = "https://app.octobrowser.net/api/v2"):
         """
         Инициализация API клиента
 
@@ -19,9 +19,9 @@ class OctobrowserAPI:
         """
         self.api_token = api_token
         self.base_url = base_url.rstrip('/')
-        # 🔥 ИСПРАВЛЕНО: Правильный заголовок для Octobrowser API
+        # 🔥 ИСПРАВЛЕНО 2025: Bearer auth согласно актуальной документации
         self.headers = {
-            'X-Access-Token': api_token,  # Правильный заголовок согласно документации
+            'Authorization': f'Bearer {api_token}',  # Bearer auth как в документации 2025
             'Content-Type': 'application/json'
         }
 
