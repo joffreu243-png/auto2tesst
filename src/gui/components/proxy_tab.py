@@ -501,18 +501,96 @@ class ProxyTab(ctk.CTkFrame):
         print("[PROXY_TAB] === save_proxies() - обновление config в памяти ===")
 
         self.config.setdefault('proxy_list', {})
-        self.config['proxy_list']['proxies'] = self.get_proxies()
+        proxies = self.get_proxies()
+        self.config['proxy_list']['proxies'] = proxies
         self.config['proxy_list']['rotation_mode'] = self.rotation_var.get().lower()
         self.config['proxy_list']['retry_on_failure'] = self.retry_var.get()
         self.config['proxy_list']['timeout'] = int(self.timeout_entry.get()) if self.timeout_entry.get().isdigit() else 10
 
-        print(f"[PROXY_TAB] ✅ Config обновлён: {len(self.config['proxy_list']['proxies'])} прокси")
+        print(f"[PROXY_TAB] Config обновлён: {len(proxies)} прокси")
+
+        # 🔥 СИНХРОНИЗАЦИЯ: Установить первый прокси в config['proxy'] для создания профилей
+        self.config.setdefault('proxy', {})
+        if proxies and len(proxies) > 0:
+            first_proxy = proxies[0]
+            parsed = self._parse_proxy_string(first_proxy)
+            if parsed:
+                self.config['proxy']['enabled'] = True
+                self.config['proxy']['type'] = parsed.get('type', 'http')
+                self.config['proxy']['host'] = parsed.get('host', '')
+                self.config['proxy']['port'] = str(parsed.get('port', ''))
+                self.config['proxy']['login'] = parsed.get('login', '')
+                self.config['proxy']['password'] = parsed.get('password', '')
+                print(f"[PROXY_TAB] Первый прокси установлен для создания профилей: {parsed['type']}://{parsed['host']}:{parsed['port']}")
+        else:
+            # Нет прокси - отключить
+            self.config['proxy']['enabled'] = False
+            print(f"[PROXY_TAB] Прокси отключены (список пуст)")
 
         # 🔥 ЦЕНТРАЛИЗОВАННОЕ СОХРАНЕНИЕ через callback
         if self.save_callback:
             print(f"[PROXY_TAB] Вызываю save_callback() для записи на диск...")
             self.save_callback()
         else:
-            print(f"[PROXY_TAB] ⚠️ save_callback не установлен!")
+            print(f"[PROXY_TAB] save_callback не установлен!")
             if self.toast:
                 self.toast.warning("Прокси обновлены, но не сохранены")
+
+    def _parse_proxy_string(self, proxy_string: str) -> Optional[Dict]:
+        """
+        Парсинг прокси строки в компоненты
+
+        Поддерживаемые форматы:
+        - type://host:port
+        - type://login:password@host:port
+        - host:port (по умолчанию http)
+
+        Returns:
+            Dict с полями: type, host, port, login, password
+        """
+        try:
+            proxy_string = proxy_string.strip()
+
+            # Паттерн: type://login:password@host:port
+            pattern1 = r'^(https?|socks5)://([^:]+):([^@]+)@([^:]+):(\d+)$'
+            match = re.match(pattern1, proxy_string)
+            if match:
+                return {
+                    'type': match.group(1),
+                    'login': match.group(2),
+                    'password': match.group(3),
+                    'host': match.group(4),
+                    'port': match.group(5)
+                }
+
+            # Паттерн: type://host:port
+            pattern2 = r'^(https?|socks5)://([^:]+):(\d+)$'
+            match = re.match(pattern2, proxy_string)
+            if match:
+                return {
+                    'type': match.group(1),
+                    'host': match.group(2),
+                    'port': match.group(3),
+                    'login': '',
+                    'password': ''
+                }
+
+            # Паттерн: host:port (без типа, по умолчанию http)
+            pattern3 = r'^([^:]+):(\d+)$'
+            match = re.match(pattern3, proxy_string)
+            if match:
+                return {
+                    'type': 'http',
+                    'host': match.group(1),
+                    'port': match.group(2),
+                    'login': '',
+                    'password': ''
+                }
+
+            print(f"[PROXY_TAB] Не удалось распарсить прокси: {proxy_string}")
+            return None
+
+        except Exception as e:
+            print(f"[PROXY_TAB] Ошибка парсинга прокси: {e}")
+            return None
+
