@@ -373,17 +373,26 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         """Тестировать подключение к API"""
         import requests
 
+        print("[DEBUG] test_connection() вызван")  # DEBUG
+        print(f"[DEBUG] self.toast = {self.toast}")  # DEBUG
+
         token = self.token_entry.get().strip()
         base_url = self.base_url_entry.get().strip()
 
+        print(f"[DEBUG] token = {token[:10]}..." if token else "[DEBUG] token пуст")  # DEBUG
+        print(f"[DEBUG] base_url = {base_url}")  # DEBUG
+
         if not token:
+            print("[DEBUG] Токен пуст, показываю warning")  # DEBUG
             if self.toast:
                 self.toast.warning("Введите API Token")
             return
 
+        print("[DEBUG] Показываю info toast")  # DEBUG
         if self.toast:
             self.toast.info("Тестирую подключение...")
 
+        print("[DEBUG] Начинаю запрос к API")  # DEBUG
         try:
             # Прямой запрос с правильным заголовком X-Access-Token
             response = requests.get(
@@ -393,26 +402,37 @@ class OctoAPITab(ctk.CTkScrollableFrame):
                 timeout=10
             )
 
+            print(f"[DEBUG] Получен ответ: status_code={response.status_code}")  # DEBUG
+
             if response.status_code == 200:
+                print("[DEBUG] Успех! Показываю success toast")  # DEBUG
                 if self.toast:
                     self.toast.success("✅ Octo API подключён успешно!")
             elif response.status_code == 401:
+                print("[DEBUG] 401 Unauthorized")  # DEBUG
                 if self.toast:
                     self.toast.error("❌ Неверный токен (401 Unauthorized)")
             elif response.status_code == 403:
+                print("[DEBUG] 403 Forbidden")  # DEBUG
                 if self.toast:
                     self.toast.error("❌ Доступ запрещён (403 Forbidden)")
             else:
+                print(f"[DEBUG] Другой код: {response.status_code}")  # DEBUG
                 if self.toast:
                     self.toast.error(f"Ошибка {response.status_code}: {response.text[:100]}")
 
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as e:
+            print(f"[DEBUG] ConnectionError: {e}")  # DEBUG
             if self.toast:
                 self.toast.error("❌ Нет соединения с Octo Browser")
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as e:
+            print(f"[DEBUG] Timeout: {e}")  # DEBUG
             if self.toast:
                 self.toast.error("❌ Превышено время ожидания")
         except Exception as e:
+            print(f"[DEBUG] Exception: {e}")  # DEBUG
+            import traceback
+            traceback.print_exc()  # DEBUG
             if self.toast:
                 self.toast.error(f"Ошибка: {str(e)}")
 
