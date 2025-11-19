@@ -138,6 +138,29 @@ class PlaywrightParser:
                 current_alternative_variant = []
                 continue
 
+            # === RANDOM ANSWER SUPPORT ADDED ===
+            # Проверить на маркер #random или #random[min-max]
+            if line.strip().startswith('#random'):
+                # Извлечь параметры min-max если есть
+                min_opt = 1
+                max_opt = 100
+                range_match = re.search(r'#random\[(\d+)-(\d+)\]', line)
+                if range_match:
+                    min_opt = int(range_match.group(1))
+                    max_opt = int(range_match.group(2))
+
+                action = {
+                    'type': 'random_marker',
+                    'min_options': min_opt,
+                    'max_options': max_opt,
+                    'line': i
+                }
+                if in_alternative_block:
+                    current_alternative_variant.append(action)
+                else:
+                    actions.append(action)
+                continue
+
             # Пропустить обычные комментарии и пустые строки
             if not line or line.startswith('#') or line.startswith('//'):
                 continue
@@ -476,6 +499,77 @@ class PlaywrightParser:
         code_lines.append('# === END SMART QUESTION-ANSWER HANDLER ===')
         code_lines.append('')
 
+        # === RANDOM ANSWER SUPPORT ADDED ===
+        code_lines.append('# === RANDOM ANSWER SUPPORT ===')
+        code_lines.append('# Функция для случайного ответа на вопрос (обход A/B тестов и антиботов)')
+        code_lines.append('async def answer_question_random(')
+        code_lines.append('    heading: str,')
+        code_lines.append('    min_options: int = 1,')
+        code_lines.append('    max_options: int = 100')
+        code_lines.append('):')
+        code_lines.append('    """Ждёт вопрос и выбирает случайный ответ из доступных кнопок"""')
+        code_lines.append('    import random')
+        code_lines.append('    ')
+        code_lines.append('    print(f"[RANDOM] Жду вопрос: {heading}")')
+        code_lines.append('    heading_locator = page.get_by_role("heading", name=heading, exact=True)')
+        code_lines.append('    ')
+        code_lines.append('    try:')
+        code_lines.append('        await heading_locator.wait_for(state="visible", timeout=35000)')
+        code_lines.append('        print(f"[RANDOM] Вопрос появился: {heading} → ищу кнопки-ответы...")')
+        code_lines.append('        ')
+        code_lines.append('        # Попробовать найти контейнер с вопросом (поднимаемся на 2-3 уровня)')
+        code_lines.append('        try:')
+        code_lines.append('            parent = heading_locator.locator("xpath=ancestor::*[3]").first')
+        code_lines.append('            if await parent.count() > 0:')
+        code_lines.append('                buttons = parent.get_by_role("button")')
+        code_lines.append('            else:')
+        code_lines.append('                buttons = page.get_by_role("button")')
+        code_lines.append('        except:')
+        code_lines.append('            buttons = page.get_by_role("button")')
+        code_lines.append('        ')
+        code_lines.append('        # Собрать все видимые кнопки')
+        code_lines.append('        await page.wait_for_timeout(1000)  # Дать время кнопкам появиться')
+        code_lines.append('        all_buttons = await buttons.all()')
+        code_lines.append('        ')
+        code_lines.append('        # Фильтр: только видимые кнопки с текстом (исключая навигационные)')
+        code_lines.append('        visible_buttons = []')
+        code_lines.append('        excluded_texts = ["back", "previous", "skip", "need help", "live chat", "help", "cancel", "close"]')
+        code_lines.append('        ')
+        code_lines.append('        for btn in all_buttons:')
+        code_lines.append('            try:')
+        code_lines.append('                if await btn.is_visible():')
+        code_lines.append('                    text = (await btn.inner_text()).strip().lower()')
+        code_lines.append('                    if text and text not in excluded_texts:')
+        code_lines.append('                        visible_buttons.append(btn)')
+        code_lines.append('            except:')
+        code_lines.append('                continue')
+        code_lines.append('        ')
+        code_lines.append('        # Проверка количества вариантов')
+        code_lines.append('        if len(visible_buttons) < min_options:')
+        code_lines.append('            print(f"[RANDOM] Недостаточно вариантов: {len(visible_buttons)}, беру все доступные")')
+        code_lines.append('        ')
+        code_lines.append('        # Ограничить max_options')
+        code_lines.append('        if len(visible_buttons) > max_options:')
+        code_lines.append('            visible_buttons = visible_buttons[:max_options]')
+        code_lines.append('        ')
+        code_lines.append('        if not visible_buttons:')
+        code_lines.append('            raise Exception(f"[RANDOM] Не найдено ни одной кнопки-ответа для вопроса: {heading}")')
+        code_lines.append('        ')
+        code_lines.append('        # Выбрать случайную кнопку')
+        code_lines.append('        chosen = random.choice(visible_buttons)')
+        code_lines.append('        answer_text = await chosen.inner_text()')
+        code_lines.append('        print(f"[RANDOM] Выбрал ответ {visible_buttons.index(chosen)+1}/{len(visible_buttons)}: {answer_text.strip()}")')
+        code_lines.append('        ')
+        code_lines.append('        # Кликнуть с имитацией человека')
+        code_lines.append('        await chosen.click(delay=150)')
+        code_lines.append('        await page.wait_for_load_state("networkidle", timeout=10000)')
+        code_lines.append('        ')
+        code_lines.append('    except Exception as e:')
+        code_lines.append('        print(f"[RANDOM] Ошибка случайного ответа на вопрос \'{heading}\': {e}")')
+        code_lines.append('')
+        code_lines.append('# === END RANDOM ANSWER SUPPORT ===')
+        code_lines.append('')
+
         for action in actions:
             if action['type'] == 'goto':
                 code_lines.append(f'# Переход на страницу')
@@ -669,9 +763,22 @@ class PlaywrightParser:
 
                 var_index += 1
 
+            # === RANDOM ANSWER SUPPORT ADDED ===
+            elif action['type'] == 'random_marker':
+                # Вставить маркер для пост-обработки
+                min_opt = action.get('min_options', 1)
+                max_opt = action.get('max_options', 100)
+                code_lines.append(f'# RANDOM_MARKER[{min_opt}-{max_opt}]')
+                code_lines.append('')
+
         # === SMART BUTTON HANDLER ADDED ===
         # Трансформация теперь происходит на этапе генерации, пост-обработка не нужна
         converted_code = '\n'.join(code_lines)
+
+        # === RANDOM ANSWER SUPPORT ADDED ===
+        # Пост-обработка: найти пары heading→#random и заменить на answer_question_random
+        # ВАЖНО: Обрабатываем СНАЧАЛА #random, потом обычные кнопки!
+        converted_code = self._transform_heading_random_pairs(converted_code)
 
         # === SMART QUESTION-ANSWER HANDLER ADDED ===
         # Пост-обработка: найти пары heading→button и заменить на answer_question
@@ -845,6 +952,101 @@ class PlaywrightParser:
             if '.fill(' in line or '.press_sequentially(' in line:
                 return True
         return False
+
+    def _transform_heading_random_pairs(self, code: str) -> str:
+        """
+        === RANDOM ANSWER SUPPORT ADDED ===
+        Находит пары: клик по heading → # RANDOM_MARKER[min-max]
+        Заменяет их на один вызов answer_question_random()
+
+        Правила:
+        1. Ищет клик по get_by_role("heading", name="...")
+        2. Проверяет следующие строки на наличие # RANDOM_MARKER[min-max]
+        3. Заменяет оба на await answer_question_random(heading="...", min_options=min, max_options=max)
+        """
+        lines = code.split('\n')
+        i = 0
+        skip_until = -1
+
+        result_lines = []
+
+        while i < len(lines):
+            # Пропустить строки, которые являются частью замененной пары
+            if i <= skip_until:
+                i += 1
+                continue
+
+            line = lines[i]
+
+            # Проверить, начинается ли блок клика по heading
+            if line.strip().startswith('# Клик по элементу'):
+                # Проверить следующие строки на наличие heading click
+                heading_click_idx = self._find_heading_click_in_block(lines, i)
+
+                if heading_click_idx != -1:
+                    # Нашли клик по heading
+                    heading_text = self._extract_heading_text(lines[heading_click_idx])
+
+                    if heading_text:
+                        # Найти конец блока клика
+                        block_end = self._find_click_block_end(lines, heading_click_idx)
+
+                        # Искать # RANDOM_MARKER после блока (может быть через кнопки)
+                        search_start = block_end + 1
+                        random_marker_info = self._find_random_marker(lines, search_start, max_distance=50)
+
+                        if random_marker_info:
+                            marker_line_idx, min_opt, max_opt = random_marker_info
+
+                            # ПАРА НАЙДЕНА! Проверить что между heading и #random только кнопки (не fill)
+                            # Это нормально - пользователь показал варианты ответов
+                            has_fill = self._has_fill_between(lines, block_end, marker_line_idx)
+
+                            if not has_fill:
+                                # Установить skip_until чтобы пропустить все строки пары (включая промежуточные кнопки)
+                                skip_until = marker_line_idx
+                                if marker_line_idx + 1 < len(lines) and not lines[marker_line_idx + 1].strip():
+                                    skip_until = marker_line_idx + 1
+
+                                # Добавить answer_question_random вместо пары
+                                result_lines.append('# Случайный ответ на вопрос (heading → #random)')
+                                if min_opt == 1 and max_opt == 100:
+                                    # Стандартные параметры - не указываем
+                                    result_lines.append(f'await answer_question_random("{heading_text}")')
+                                else:
+                                    # Кастомные параметры
+                                    result_lines.append(f'await answer_question_random("{heading_text}", min_options={min_opt}, max_options={max_opt})')
+                                result_lines.append('')
+
+                                i += 1
+                                continue
+
+            # Если не нашли пару - оставить строку как есть
+            result_lines.append(line)
+            i += 1
+
+        return '\n'.join(result_lines)
+
+    def _find_random_marker(self, lines: List[str], start_idx: int, max_distance: int = 10) -> Optional[tuple]:
+        """
+        Ищет следующий # RANDOM_MARKER[min-max] в пределах max_distance строк
+
+        Returns:
+            (line_idx, min_options, max_options) или None
+        """
+        for i in range(start_idx, min(start_idx + max_distance, len(lines))):
+            line = lines[i].strip()
+
+            if line.startswith('# RANDOM_MARKER'):
+                # Извлечь параметры [min-max]
+                pattern = r'# RANDOM_MARKER\[(\d+)-(\d+)\]'
+                match = re.search(pattern, line)
+                if match:
+                    min_opt = int(match.group(1))
+                    max_opt = int(match.group(2))
+                    return (i, min_opt, max_opt)
+
+        return None
 
     def _is_button_click(self, selector_code: str) -> bool:
         """
