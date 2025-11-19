@@ -89,7 +89,9 @@ class OctoAPITab(ctk.CTkScrollableFrame):
             font=('Consolas', 11),
             fg_color=self.theme['bg_tertiary']
         )
-        self.base_url_entry.insert(0, "https://app.octobrowser.net/api/v2")
+        # 🔥 ПРАВИЛЬНЫЙ Base URL с /automation согласно официальной документации
+        # https://documenter.getpostman.com/view/1801428/UVC6i6eA
+        self.base_url_entry.insert(0, "https://app.octobrowser.net/api/v2/automation")
         self.base_url_entry.pack(fill="x", padx=16, pady=(0, 8))
 
         test_btn = ctk.CTkButton(

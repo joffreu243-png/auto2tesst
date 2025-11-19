@@ -18,7 +18,9 @@ from typing import Dict, List, Optional
 
 # Octobrowser API
 OCTO_API_TOKEN = "your_token_here"
-OCTO_API_BASE_URL = "https://app.octobrowser.net/api/v2"
+# 🔥 ПРАВИЛЬНЫЙ Base URL с /automation согласно официальной документации
+# https://documenter.getpostman.com/view/1401428/UVC6i6eA
+OCTO_API_BASE_URL = "https://app.octobrowser.net/api/v2/automation"
 
 # CSV с данными
 CSV_FILENAME = "data.csv"

@@ -9,13 +9,13 @@ from typing import Dict, List, Optional, Any
 class OctobrowserAPI:
     """Класс для взаимодействия с Octobrowser API"""
 
-    def __init__(self, api_token: str, base_url: str = "https://app.octobrowser.net/api/v2"):
+    def __init__(self, api_token: str, base_url: str = "https://app.octobrowser.net/api/v2/automation"):
         """
         Инициализация API клиента
 
         Args:
             api_token: API токен из настроек аккаунта
-            base_url: Базовый URL API
+            base_url: Базовый URL API (по умолчанию /automation endpoint)
         """
         self.api_token = api_token
         self.base_url = base_url.rstrip('/')
