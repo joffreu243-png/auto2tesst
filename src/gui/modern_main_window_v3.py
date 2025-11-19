@@ -714,9 +714,13 @@ class ModernAppV3(ctk.CTk):
             profile_config = self.octo_tab_widget.get_profile_config()
 
             # Собрать конфигурацию из всех табов
+            csv_path = self.config.get('ui_settings', {}).get('last_csv_path', 'data.csv')
+            if not csv_path or csv_path.strip() == '':
+                csv_path = 'data.csv'  # Default если пусто
+
             config = {
                 'api_token': self.config.get('octobrowser', {}).get('api_token', ''),
-                'csv_filename': self.config.get('ui_settings', {}).get('last_csv_path', 'data.csv'),
+                'csv_filename': csv_path,
                 'target': 'library',  # По умолчанию library mode
                 'use_proxy': self.config.get('proxy', {}).get('enabled', False),
                 'proxy': self.config.get('proxy', {}),

@@ -877,8 +877,7 @@ class PlaywrightParser:
                     code_lines.append(f'except Exception as e:')
                     code_lines.append(f'    print(f"[WARNING] Не удалось заполнить поле {var_name}: {{e}}")')
                     code_lines.append(f'    print("[INFO] Пропускаем поле и продолжаем...")')
-                    code_lines.append('page.wait_for_timeout(1000)  # Пауза 1 сек')
-                    code_lines.append('')
+                    code_lines.append('')  # Пустая строка для разделения
 
                 var_index += 1
 
@@ -1315,8 +1314,7 @@ class PlaywrightParser:
         code_lines.append(f'except Exception as e:')
         code_lines.append(f'    print(f"[WARNING] Не удалось кликнуть: {{e}}")')
         code_lines.append(f'    print("[INFO] Пропускаем клик и продолжаем...")')
-        code_lines.append('page.wait_for_timeout(2000)  # Пауза 2 сек')
-        code_lines.append('')
+        code_lines.append('')  # Пустая строка для разделения
 
     def _generate_selector_code(self, selector: Dict) -> str:
         """Генерирует код селектора Playwright"""
