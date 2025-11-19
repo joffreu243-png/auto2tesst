@@ -422,7 +422,8 @@ class ModernAppV3(ctk.CTk):
 
     def setup_proxies_tab(self):
         """Настроить вкладку Proxies"""
-        self.proxy_tab_widget = ProxyTab(self.tab_proxies, self.theme, self.toast)
+        # 🔥 ИСПРАВЛЕНИЕ: Передаем config для сохранения настроек прокси
+        self.proxy_tab_widget = ProxyTab(self.tab_proxies, self.theme, self.config, self.toast)
         self.proxy_tab_widget.pack(fill="both", expand=True)
 
     def setup_octo_tab(self):

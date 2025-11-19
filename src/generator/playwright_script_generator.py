@@ -479,9 +479,11 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
 
     def _generate_main_iteration(self, user_code: str, use_sms: bool = False, target: str = 'library') -> str:
         """Генерирует главную функцию итерации"""
-        # Отступ для user_code (12 пробелов - внутри with sync_playwright блока)
+        # 🔥 ИСПРАВЛЕНИЕ: Сначала убрать общий отступ из user_code, потом добавить нужный (12 пробелов)
+        import textwrap
+        dedented_code = textwrap.dedent(user_code)  # Убрать общий отступ
         indented_code = '\n'.join(' ' * 12 + line if line.strip() else ''
-                                  for line in user_code.split('\n'))
+                                  for line in dedented_code.split('\n'))
 
         # Добавить SMS блок если включено
         sms_block = ''

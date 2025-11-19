@@ -125,10 +125,11 @@ class ProxyTab(ctk.CTkFrame):
     Вкладка управления прокси
     """
 
-    def __init__(self, parent, theme: Dict, toast_manager=None):
+    def __init__(self, parent, theme: Dict, config: Dict, toast_manager=None):
         super().__init__(parent, fg_color="transparent")
 
         self.theme = theme
+        self.config = config
         self.toast = toast_manager
 
         # Список прокси
@@ -136,6 +137,9 @@ class ProxyTab(ctk.CTkFrame):
         self.proxy_widgets = []
 
         self.create_widgets()
+
+        # Загрузить сохраненные прокси
+        self.load_proxies()
 
     def create_widgets(self):
         """Создать виджеты"""
@@ -164,6 +168,7 @@ class ProxyTab(ctk.CTkFrame):
         buttons = [
             ("➕ Add Proxy", self.add_proxy, self.theme['accent_success']),
             ("📂 Import File", self.import_proxies, self.theme['accent_secondary']),
+            ("💾 Save", self.save_proxies, self.theme['accent_primary']),
             ("🔍 Test All", self.test_all_proxies, self.theme['accent_info']),
             ("🗑️ Clear All", self.clear_all, self.theme['accent_error'])
         ]
@@ -478,3 +483,33 @@ class ProxyTab(ctk.CTkFrame):
             'retry_on_failure': self.retry_var.get(),
             'timeout': int(self.timeout_entry.get()) if self.timeout_entry.get().isdigit() else 10
         }
+
+    def load_proxies(self):
+        """Загрузить прокси из config"""
+        saved_proxies = self.config.get('proxy_list', {}).get('proxies', [])
+        for proxy_string in saved_proxies:
+            if proxy_string.strip():
+                self._add_proxy_widget(proxy_string.strip())
+
+    def save_proxies(self):
+        """Сохранить прокси в config"""
+        self.config.setdefault('proxy_list', {})
+        self.config['proxy_list']['proxies'] = self.get_proxies()
+        self.config['proxy_list']['rotation_mode'] = self.rotation_var.get().lower()
+        self.config['proxy_list']['retry_on_failure'] = self.retry_var.get()
+        self.config['proxy_list']['timeout'] = int(self.timeout_entry.get()) if self.timeout_entry.get().isdigit() else 10
+
+        # Save to file
+        from pathlib import Path
+        import json
+        config_path = Path(__file__).parent.parent.parent / 'config.json'
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
+
+            if self.toast:
+                self.toast.success("Прокси сохранены!")
+
+        except Exception as e:
+            if self.toast:
+                self.toast.error(f"Ошибка сохранения: {e}")
