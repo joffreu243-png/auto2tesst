@@ -139,9 +139,11 @@ class ModernApp(ctk.CTk):
 
     def create_ui(self):
         """Создание всего интерфейса"""
-        # Конфигурация grid
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        # 🔥 Конфигурация grid с правильными weights
+        self.grid_rowconfigure(0, weight=0)     # Topbar - фиксированная высота
+        self.grid_rowconfigure(1, weight=1)     # Main area - растягивается
+        self.grid_columnconfigure(0, weight=0)  # Sidebar - фиксированная ширина
+        self.grid_columnconfigure(1, weight=1)  # Main content - растягивается
 
         # === ВЕРХНЯЯ ПАНЕЛЬ ===
         self.create_top_bar()
@@ -334,8 +336,11 @@ class ModernApp(ctk.CTk):
             border_color=self.theme['border_primary'],
         )
         container.grid(row=1, column=0, padx=32, pady=(0, 32), sticky="nsew")
+        # 🔥 Правильные weights для адаптивного layout
         container.grid_columnconfigure(0, weight=1)
-        container.grid_rowconfigure(1, weight=1)
+        container.grid_rowconfigure(0, weight=0)  # Кнопки - фиксированная высота
+        container.grid_rowconfigure(1, weight=0)  # Label - фиксированная высота
+        container.grid_rowconfigure(2, weight=1)  # Code editor - растягивается
 
         # Кнопки импорта
         btn_frame = ctk.CTkFrame(container, fg_color="transparent")
@@ -403,8 +408,11 @@ class ModernApp(ctk.CTk):
     def create_run_page(self, parent):
         """Страница Run Script"""
         page = ctk.CTkFrame(parent, fg_color="transparent")
+        # 🔥 Правильные weights для адаптивного layout
         page.grid_columnconfigure(0, weight=1)
-        page.grid_rowconfigure(2, weight=1)
+        page.grid_rowconfigure(0, weight=0)  # Header - фиксированная высота
+        page.grid_rowconfigure(1, weight=0)  # Control panel - фиксированная высота
+        page.grid_rowconfigure(2, weight=1)  # Log container - растягивается
 
         # Заголовок
         header = ctk.CTkLabel(
@@ -489,8 +497,10 @@ class ModernApp(ctk.CTk):
             border_color=self.theme['border_primary'],
         )
         log_container.grid(row=2, column=0, padx=32, pady=(0, 32), sticky="nsew")
+        # 🔥 Правильные weights для адаптивного layout
         log_container.grid_columnconfigure(0, weight=1)
-        log_container.grid_rowconfigure(1, weight=1)
+        log_container.grid_rowconfigure(0, weight=0)  # Header - фиксированная высота
+        log_container.grid_rowconfigure(1, weight=1)  # Log textbox - растягивается
 
         log_header = ctk.CTkLabel(
             log_container,
@@ -517,8 +527,10 @@ class ModernApp(ctk.CTk):
     def create_logs_page(self, parent):
         """Страница Logs (дубликат run log с фильтрами)"""
         page = ctk.CTkFrame(parent, fg_color="transparent")
+        # 🔥 Правильные weights для адаптивного layout
         page.grid_columnconfigure(0, weight=1)
-        page.grid_rowconfigure(1, weight=1)
+        page.grid_rowconfigure(0, weight=0)  # Header - фиксированная высота
+        page.grid_rowconfigure(1, weight=1)  # Log container - растягивается
 
         header = ctk.CTkLabel(
             page,
@@ -537,8 +549,10 @@ class ModernApp(ctk.CTk):
             border_color=self.theme['border_primary'],
         )
         log_container.grid(row=1, column=0, padx=32, pady=(0, 32), sticky="nsew")
+        # 🔥 Правильные weights для адаптивного layout
         log_container.grid_columnconfigure(0, weight=1)
-        log_container.grid_rowconfigure(1, weight=1)
+        log_container.grid_rowconfigure(0, weight=0)  # Clear button - фиксированная высота
+        log_container.grid_rowconfigure(1, weight=1)  # Log textbox - растягивается
 
         # Кнопка очистки
         clear_btn = ctk.CTkButton(

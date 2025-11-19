@@ -2,24 +2,32 @@
 🍞 Toast Notifications - Красивые ненавязчивые уведомления
 
 Замена для старых messagebox.showinfo/showerror
+
+ИСПРАВЛЕНО:
+- Убраны все threading.Timer (причина TclError)
+- Используется только self.after() (безопасно для Tkinter)
+- Добавлен флаг _destroyed для защиты от ошибок
 """
 
 import customtkinter as ctk
 from typing import Literal
-import threading
 
 
 class Toast(ctk.CTkFrame):
     """
-    Одно toast-уведомление с анимацией появления/исчезновения
+    Одно toast-уведомление с безопасной анимацией
+
+    Без threading.Timer - только self.after()!
     """
 
     def __init__(self, parent, message: str, type: Literal['info', 'success', 'warning', 'error'] = 'info', duration: int = 3000):
         from ..themes import ModernTheme
 
-        self.theme = ModernTheme.DARK  # Получим правильную тему от parent позже
+        self.theme = ModernTheme.DARK
         self.duration = duration
         self.type = type
+        self._destroyed = False  # 🔥 Флаг для предотвращения TclError
+        self._after_ids = []  # 🔥 Список всех after ID для отмены
 
         super().__init__(
             parent,
@@ -101,35 +109,81 @@ class Toast(ctk.CTkFrame):
         self.progress.grid(row=1, column=0, columnspan=3, sticky="ew")
         self.progress.set(1.0)
 
-        # Таймер автозакрытия
+        # 🔥 Запуск безопасной анимации с self.after() вместо threading.Timer
         if duration > 0:
-            self.auto_dismiss_timer = threading.Timer(duration / 1000, self.dismiss)
-            self.auto_dismiss_timer.start()
+            self._start_progress_animation()
 
-            # Анимация прогресс-бара
-            self._animate_progress()
+    def _start_progress_animation(self):
+        """
+        Безопасная анимация прогресс-бара через self.after()
 
-    def _animate_progress(self):
-        """Анимирует прогресс-бар от 1.0 до 0.0"""
+        Вместо threading.Timer используется рекурсивный self.after()
+        """
+        if self._destroyed:
+            return
+
+        # Параметры анимации
         steps = 30
-        step_duration = self.duration / steps
+        step_duration_ms = self.duration / steps
 
-        def update_progress(step):
-            if step >= 0:
-                self.progress.set(step / steps)
-                timer = threading.Timer(step_duration / 1000, lambda: update_progress(step - 1))
-                timer.start()
+        def update_progress(current_step):
+            """Рекурсивное обновление прогресс-бара"""
+            if self._destroyed:
+                return
 
+            if current_step >= 0:
+                # Обновить прогресс
+                try:
+                    self.progress.set(current_step / steps)
+                except:
+                    # Если виджет уже уничтожен - выходим
+                    return
+
+                # Запланировать следующий шаг
+                after_id = self.after(int(step_duration_ms), lambda: update_progress(current_step - 1))
+                self._after_ids.append(after_id)
+            else:
+                # Прогресс завершен - закрыть toast
+                after_id = self.after(100, self.dismiss)
+                self._after_ids.append(after_id)
+
+        # Начать анимацию
         update_progress(steps)
 
     def dismiss(self):
-        """Закрыть toast с анимацией"""
-        # Простая анимация: fade out (меняем прозрачность через alpha)
-        # В CustomTkinter нет встроенной анимации, так что просто удаляем
+        """
+        Закрыть toast с безопасным уничтожением
+
+        КРИТИЧНО: Отменяем все after() перед destroy()
+        """
+        if self._destroyed:
+            return
+
+        # 🔥 Установить флаг сразу
+        self._destroyed = True
+
+        # 🔥 Отменить все запланированные after()
+        for after_id in self._after_ids:
+            try:
+                self.after_cancel(after_id)
+            except:
+                pass
+
+        self._after_ids.clear()
+
+        # Уничтожить виджет
         try:
-            self.destroy()
+            super().destroy()
         except:
             pass
+
+    def destroy(self):
+        """
+        Переопределение destroy() для безопасного уничтожения
+
+        Вызывается автоматически при закрытии окна или удалении виджета
+        """
+        self.dismiss()
 
 
 class ToastManager:
@@ -153,8 +207,6 @@ class ToastManager:
             fg_color="transparent",
             corner_radius=0,
         )
-        # Позиционируем внизу справа
-        # Это будет вызвано из main window после создания
 
     def place_container(self, x=None, y=None, relx=None, rely=None, anchor=None):
         """Размещает контейнер в нужном месте окна"""
@@ -192,14 +244,16 @@ class ToastManager:
     def _reposition_toasts(self):
         """Переставляет все toast в стеке"""
         spacing = 12
-        current_y = 0
 
         # Снизу вверх
         for i, toast in enumerate(reversed(self.toasts)):
             try:
-                toast.pack(side="bottom", fill="x", pady=(0, spacing if i > 0 else 0))
+                if not toast._destroyed:
+                    toast.pack(side="bottom", fill="x", pady=(0, spacing if i > 0 else 0))
             except:
-                self.toasts.remove(toast)
+                # Удалить уничтоженные toast из списка
+                if toast in self.toasts:
+                    self.toasts.remove(toast)
 
     def info(self, message: str, duration: int = 3000):
         """Показать информационное уведомление"""
