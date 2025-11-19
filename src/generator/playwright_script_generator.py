@@ -476,7 +476,7 @@ def update_csv_row(filename: str, row_index: int, phone_number: Optional[str] = 
 
     def _generate_main_iteration(self, user_code: str, use_sms: bool = False, target: str = 'library') -> str:
         """Генерирует главную функцию итерации"""
-        # Отступ для user_code (12 пробелов - внутри async with блока)
+        # Отступ для user_code (12 пробелов - внутри with sync_playwright блока)
         indented_code = '\n'.join(' ' * 12 + line if line.strip() else ''
                                   for line in user_code.split('\n'))
 

@@ -526,7 +526,7 @@ class PlaywrightParser:
         code_lines.append('    locator = page.get_by_role("button", name=name, exact=exact)')
         code_lines.append('    try:')
         code_lines.append('        locator.wait_for(state="visible", timeout=30000)')
-        code_lines.append('        if await locator.is_visible():')
+        code_lines.append('        if locator.is_visible():')
         code_lines.append('            print(f"[SMART CLICK] Кликаю кнопку: {name}")')
         code_lines.append('            locator.click(delay=100)')
         code_lines.append('            page.wait_for_load_state("networkidle", timeout=10000)')
@@ -574,7 +574,7 @@ class PlaywrightParser:
         code_lines.append('        # Попробовать найти контейнер с вопросом (поднимаемся на 2-3 уровня)')
         code_lines.append('        try:')
         code_lines.append('            parent = heading_locator.locator("xpath=ancestor::*[3]").first')
-        code_lines.append('            if await parent.count() > 0:')
+        code_lines.append('            if parent.count() > 0:')
         code_lines.append('                buttons = parent.get_by_role("button")')
         code_lines.append('            else:')
         code_lines.append('                buttons = page.get_by_role("button")')
@@ -583,7 +583,7 @@ class PlaywrightParser:
         code_lines.append('        ')
         code_lines.append('        # Собрать все видимые кнопки')
         code_lines.append('        page.wait_for_timeout(1000)  # Дать время кнопкам появиться')
-        code_lines.append('        all_buttons = await buttons.all()')
+        code_lines.append('        all_buttons = buttons.all()')
         code_lines.append('        ')
         code_lines.append('        # Фильтр: только видимые кнопки с текстом (исключая навигационные)')
         code_lines.append('        visible_buttons = []')
@@ -591,8 +591,8 @@ class PlaywrightParser:
         code_lines.append('        ')
         code_lines.append('        for btn in all_buttons:')
         code_lines.append('            try:')
-        code_lines.append('                if await btn.is_visible():')
-        code_lines.append('                    text = (await btn.inner_text()).strip().lower()')
+        code_lines.append('                if btn.is_visible():')
+        code_lines.append('                    text = btn.inner_text().strip().lower()')
         code_lines.append('                    if text and text not in excluded_texts:')
         code_lines.append('                        visible_buttons.append(btn)')
         code_lines.append('            except:')
@@ -611,7 +611,7 @@ class PlaywrightParser:
         code_lines.append('        ')
         code_lines.append('        # Выбрать случайную кнопку')
         code_lines.append('        chosen = random.choice(visible_buttons)')
-        code_lines.append('        answer_text = await chosen.inner_text()')
+        code_lines.append('        answer_text = chosen.inner_text()')
         code_lines.append('        print(f"[RANDOM] Выбрал ответ {visible_buttons.index(chosen)+1}/{len(visible_buttons)}: {answer_text.strip()}")')
         code_lines.append('        ')
         code_lines.append('        # Кликнуть с имитацией человека')
@@ -667,9 +667,9 @@ class PlaywrightParser:
                 code_lines.append(f'# Переход на страницу')
                 code_lines.append(f'try:')
                 code_lines.append(f'    # Используем domcontentloaded вместо load - быстрее и надежнее')
-                code_lines.append(f'    await page.goto("{action["url"]}", wait_until="domcontentloaded", timeout=60000)')
+                code_lines.append(f'    page.goto("{action["url"]}", wait_until="domcontentloaded", timeout=60000)')
                 code_lines.append(f'    print("[OK] Страница загружена: {action["url"]}")')
-                code_lines.append(f'    await page.wait_for_timeout(2000)  # Доп. пауза для загрузки JS')
+                code_lines.append(f'    page.wait_for_timeout(2000)  # Доп. пауза для загрузки JS')
                 code_lines.append(f'except Exception as e:')
                 code_lines.append(f'    print(f"[WARNING] Проблема при загрузке страницы: {{e}}")')
                 code_lines.append(f'    print("[INFO] Продолжаем работу...")')
@@ -694,22 +694,22 @@ class PlaywrightParser:
                         if sub_action['type'] == 'click':
                             selector = sub_action['selector']
                             selector_code = self._generate_selector_code(selector)
-                            code_lines.append(f'        await page.{selector_code}.wait_for(state="visible", timeout=5000)')
-                            code_lines.append(f'        await page.{selector_code}.click()')
-                            code_lines.append(f'        await page.wait_for_timeout(1000)')
+                            code_lines.append(f'        page.{selector_code}.wait_for(state="visible", timeout=5000)')
+                            code_lines.append(f'        page.{selector_code}.click()')
+                            code_lines.append(f'        page.wait_for_timeout(1000)')
 
                         elif sub_action['type'] == 'fill':
                             selector = sub_action['selector']
                             selector_code = self._generate_selector_code(selector)
                             value = sub_action['value']
-                            code_lines.append(f'        await page.{selector_code}.wait_for(state="visible", timeout=5000)')
-                            code_lines.append(f'        await page.{selector_code}.fill("{value}")')
-                            code_lines.append(f'        await page.wait_for_timeout(500)')
+                            code_lines.append(f'        page.{selector_code}.wait_for(state="visible", timeout=5000)')
+                            code_lines.append(f'        page.{selector_code}.fill("{value}")')
+                            code_lines.append(f'        page.wait_for_timeout(500)')
 
                         elif sub_action['type'] == 'goto':
                             url = sub_action['url']
-                            code_lines.append(f'        await page.goto("{url}", wait_until="domcontentloaded", timeout=30000)')
-                            code_lines.append(f'        await page.wait_for_timeout(2000)')
+                            code_lines.append(f'        page.goto("{url}", wait_until="domcontentloaded", timeout=30000)')
+                            code_lines.append(f'        page.wait_for_timeout(2000)')
 
                     code_lines.append(f'        print("[ALTERNATIVE] [SUCCESS] Вариант {variant_idx} сработал!")')
                     code_lines.append(f'        alternative_success = True')
@@ -763,9 +763,9 @@ class PlaywrightParser:
                     if button_name:
                         code_lines.append(f'# Умный клик по кнопке: {button_name}')
                         if exact:
-                            code_lines.append(f'await smart_click_button("{button_name}", exact=True)')
+                            code_lines.append(f'smart_click_button("{button_name}", exact=True)')
                         else:
-                            code_lines.append(f'await smart_click_button("{button_name}")')
+                            code_lines.append(f'smart_click_button("{button_name}")')
                         code_lines.append('')
                     else:
                         # Fallback если не смогли извлечь параметры
@@ -803,9 +803,9 @@ class PlaywrightParser:
                     code_lines.append(f'# СТРАТЕГИЯ 1: Прямой ввод через keyboard (если поле уже в фокусе)')
                     code_lines.append(f'try:')
                     code_lines.append(f'    print("[OTP] [Стратегия 1] Пробуем ввести в активное поле через keyboard...")')
-                    code_lines.append(f'    await page.wait_for_timeout(2000)  # Пауза для загрузки поля')
+                    code_lines.append(f'    page.wait_for_timeout(2000)  # Пауза для загрузки поля')
                     code_lines.append(f'    delay = random.randint(80, 120)')
-                    code_lines.append(f'    await page.keyboard.type(data_row["{var_name}"], delay=delay)')
+                    code_lines.append(f'    page.keyboard.type(data_row["{var_name}"], delay=delay)')
                     code_lines.append(f'    print(f"[OTP] [SUCCESS] OTP введен через keyboard: {{data_row[\'{var_name}\']}}")')
                     code_lines.append(f'    otp_entered = True')
                     code_lines.append(f'except Exception as e:')
@@ -828,12 +828,12 @@ class PlaywrightParser:
                     code_lines.append(f'        try:')
                     code_lines.append(f'            print(f"[OTP] [Стратегия 2.{{i}}] Пробуем селектор: {{fallback_sel}}")')
                     code_lines.append(f'            otp_field = page.locator(fallback_sel).first')
-                    code_lines.append(f'            await otp_field.wait_for(state="visible", timeout=5000)')
-                    code_lines.append(f'            await otp_field.click()')
-                    code_lines.append(f'            await page.wait_for_timeout(500)')
-                    code_lines.append(f'            await otp_field.clear()')
+                    code_lines.append(f'            otp_field.wait_for(state="visible", timeout=5000)')
+                    code_lines.append(f'            otp_field.click()')
+                    code_lines.append(f'            page.wait_for_timeout(500)')
+                    code_lines.append(f'            otp_field.clear()')
                     code_lines.append(f'            delay = random.randint(80, 120)')
-                    code_lines.append(f'            await otp_field.press_sequentially(data_row["{var_name}"], delay=delay)')
+                    code_lines.append(f'            otp_field.press_sequentially(data_row["{var_name}"], delay=delay)')
                     code_lines.append(f'            print(f"[OTP] [SUCCESS] OTP введен через fallback селектор {{i}}: {{data_row[\'{var_name}\']}}")')
                     code_lines.append(f'            otp_entered = True')
                     code_lines.append(f'            break')
@@ -845,12 +845,12 @@ class PlaywrightParser:
                     code_lines.append(f'if not otp_entered:')
                     code_lines.append(f'    try:')
                     code_lines.append(f'        print(f"[OTP] [Стратегия 3] Пробуем оригинальный селектор...")')
-                    code_lines.append(f'        await page.{selector_code}.wait_for(state="visible", timeout=10000)')
-                    code_lines.append(f'        await page.{selector_code}.click()')
-                    code_lines.append(f'        await page.wait_for_timeout(500)')
-                    code_lines.append(f'        await page.{selector_code}.clear()')
+                    code_lines.append(f'        page.{selector_code}.wait_for(state="visible", timeout=10000)')
+                    code_lines.append(f'        page.{selector_code}.click()')
+                    code_lines.append(f'        page.wait_for_timeout(500)')
+                    code_lines.append(f'        page.{selector_code}.clear()')
                     code_lines.append(f'        delay = random.randint(80, 120)')
-                    code_lines.append(f'        await page.{selector_code}.press_sequentially(data_row["{var_name}"], delay=delay)')
+                    code_lines.append(f'        page.{selector_code}.press_sequentially(data_row["{var_name}"], delay=delay)')
                     code_lines.append(f'        print(f"[OTP] [SUCCESS] OTP введен через оригинальный селектор: {{data_row[\'{var_name}\']}}")')
                     code_lines.append(f'        otp_entered = True')
                     code_lines.append(f'    except Exception as e:')
@@ -865,18 +865,18 @@ class PlaywrightParser:
                     code_lines.append(f'# Ввод текста: {var_name}')
                     code_lines.append(f'print(f"DEBUG: Заполнение поля {var_name}: {selector_code_escaped}")')
                     code_lines.append(f'try:')
-                    code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=20000)')
-                    code_lines.append(f'    await page.{selector_code}.scroll_into_view_if_needed()')
-                    code_lines.append(f'    await page.wait_for_timeout(500)')
-                    code_lines.append(f'    await page.{selector_code}.clear()')
+                    code_lines.append(f'    page.{selector_code}.wait_for(state="visible", timeout=20000)')
+                    code_lines.append(f'    page.{selector_code}.scroll_into_view_if_needed()')
+                    code_lines.append(f'    page.wait_for_timeout(500)')
+                    code_lines.append(f'    page.{selector_code}.clear()')
                     code_lines.append(f'    # Имитация человеческого ввода')
                     code_lines.append(f'    delay = random.randint(50, 150)')
-                    code_lines.append(f'    await page.{selector_code}.press_sequentially(data_row["{var_name}"], delay=delay)')
+                    code_lines.append(f'    page.{selector_code}.press_sequentially(data_row["{var_name}"], delay=delay)')
                     code_lines.append(f'    print(f"[OK] Введено {{data_row[\'{var_name}\']}}")')
                     code_lines.append(f'except Exception as e:')
                     code_lines.append(f'    print(f"[WARNING] Не удалось заполнить поле {var_name}: {{e}}")')
                     code_lines.append(f'    print("[INFO] Пропускаем поле и продолжаем...")')
-                    code_lines.append('await page.wait_for_timeout(1000)  # Пауза 1 сек')
+                    code_lines.append('page.wait_for_timeout(1000)  # Пауза 1 сек')
                     code_lines.append('')
 
                 var_index += 1
@@ -969,9 +969,9 @@ class PlaywrightParser:
                                 # Добавить answer_question вместо пары
                                 result_lines.append('# Ответ на вопрос (heading → button)')
                                 if exact:
-                                    result_lines.append(f'await answer_question("{heading_text}", "{button_text}", exact=True)')
+                                    result_lines.append(f'answer_question("{heading_text}", "{button_text}", exact=True)')
                                 else:
-                                    result_lines.append(f'await answer_question("{heading_text}", "{button_text}")')
+                                    result_lines.append(f'answer_question("{heading_text}", "{button_text}")')
                                 result_lines.append('')
 
                                 i += 1
@@ -990,7 +990,7 @@ class PlaywrightParser:
         """
         for i in range(start_idx, min(start_idx + 15, len(lines))):
             line = lines[i]
-            if 'await page.get_by_role("heading"' in line and '.click(' in line:
+            if 'page.get_by_role("heading"' in line and '.click(' in line:
                 return i
         return -1
 
@@ -1027,7 +1027,7 @@ class PlaywrightParser:
                 return i - 1
 
             # Или await page.wait_for_timeout с комментарием
-            if 'await page.wait_for_timeout' in line and '# Пауза' in line:
+            if 'page.wait_for_timeout' in line and '# Пауза' in line:
                 return i
 
             i += 1
@@ -1044,7 +1044,7 @@ class PlaywrightParser:
         for i in range(start_idx, min(start_idx + max_distance, len(lines))):
             line = lines[i]
 
-            if 'await smart_click_button(' in line:
+            if 'smart_click_button(' in line:
                 # Извлечь параметры
                 # Паттерн с exact=True
                 pattern_exact = r'await smart_click_button\("([^"]+)",\s*exact=True\)'
@@ -1130,10 +1130,10 @@ class PlaywrightParser:
                                 result_lines.append('# Случайный ответ на вопрос (heading → #random)')
                                 if min_opt == 1 and max_opt == 100:
                                     # Стандартные параметры - не указываем
-                                    result_lines.append(f'await answer_question_random("{heading_text}")')
+                                    result_lines.append(f'answer_question_random("{heading_text}")')
                                 else:
                                     # Кастомные параметры
-                                    result_lines.append(f'await answer_question_random("{heading_text}", min_options={min_opt}, max_options={max_opt})')
+                                    result_lines.append(f'answer_question_random("{heading_text}", min_options={min_opt}, max_options={max_opt})')
                                 result_lines.append('')
 
                                 i += 1
@@ -1306,15 +1306,15 @@ class PlaywrightParser:
         code_lines.append('# Клик по элементу')
         code_lines.append(f'print(f"DEBUG: Клик по: {selector_code_escaped}")')
         code_lines.append(f'try:')
-        code_lines.append(f'    await page.{selector_code}.wait_for(state="visible", timeout=20000)')
-        code_lines.append(f'    await page.{selector_code}.scroll_into_view_if_needed()')
-        code_lines.append(f'    await page.wait_for_timeout(500)')
-        code_lines.append(f'    await page.{selector_code}.click(timeout=10000)')
+        code_lines.append(f'    page.{selector_code}.wait_for(state="visible", timeout=20000)')
+        code_lines.append(f'    page.{selector_code}.scroll_into_view_if_needed()')
+        code_lines.append(f'    page.wait_for_timeout(500)')
+        code_lines.append(f'    page.{selector_code}.click(timeout=10000)')
         code_lines.append(f'    print("[OK] Клик выполнен")')
         code_lines.append(f'except Exception as e:')
         code_lines.append(f'    print(f"[WARNING] Не удалось кликнуть: {{e}}")')
         code_lines.append(f'    print("[INFO] Пропускаем клик и продолжаем...")')
-        code_lines.append('await page.wait_for_timeout(2000)  # Пауза 2 сек')
+        code_lines.append('page.wait_for_timeout(2000)  # Пауза 2 сек')
         code_lines.append('')
 
     def _generate_selector_code(self, selector: Dict) -> str:
