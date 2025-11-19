@@ -396,10 +396,11 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
         print("[DEBUG] Начинаю запрос к API")  # DEBUG
         try:
-            # Прямой запрос с правильным заголовком X-Access-Token
+            # Прямой запрос с правильным заголовком X-Octo-Api-Token
+            # Официальная документация: https://docs.octobrowser.net/
             response = requests.get(
                 f"{base_url}/profiles",
-                headers={"X-Access-Token": token},
+                headers={"X-Octo-Api-Token": token},
                 params={"limit": 1},
                 timeout=10
             )

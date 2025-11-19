@@ -19,11 +19,11 @@ class OctobrowserAPI:
         """
         self.api_token = api_token
         self.base_url = base_url.rstrip('/')
-        # 🔥 ИСПРАВЛЕНО 2025: ТОЛЬКО X-Access-Token согласно официальной документации!
-        # https://documenter.getpostman.com/view/1801428/UVC6i6eA
-        # https://docs.octobrowser.net/llms.txt
+        # 🔥 ПРАВИЛЬНЫЙ заголовок согласно официальной документации!
+        # https://docs.octobrowser.net/
+        # > All requests require authentication via API token in the X-Octo-Api-Token header
         self.headers = {
-            'X-Access-Token': api_token,  # ПРАВИЛЬНЫЙ заголовок Octo Browser API
+            'X-Octo-Api-Token': api_token,  # ПРАВИЛЬНЫЙ заголовок Octo Browser API
             'Content-Type': 'application/json'
         }
 

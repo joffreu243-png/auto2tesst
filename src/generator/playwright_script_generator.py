@@ -123,9 +123,10 @@ SMS_API_BASE_URL = "https://daisysms.com/stubs/handler_api.php"
 def create_profile() -> Optional[str]:
     """Создание профиля через Octobrowser API"""
     url = f"{API_BASE_URL}/profiles"
-    # 🔥 ПРАВИЛЬНЫЙ заголовок: X-Access-Token (НЕ X-Octo-Api-Token!)
-    # https://documenter.getpostman.com/view/1801428/UVC6i6eA
-    headers = {"X-Access-Token": API_TOKEN}
+    # 🔥 ПРАВИЛЬНЫЙ заголовок согласно официальной документации
+    # https://docs.octobrowser.net/
+    # > All requests require authentication via API token in the X-Octo-Api-Token header
+    headers = {"X-Octo-Api-Token": API_TOKEN}
 
     profile_data = {
         "title": f"AutoProfile_{int(time.time())}",
