@@ -33,7 +33,9 @@ from src.data.dynamic_field import DynamicFieldManager
 
 # Modern UI Components
 from .themes import ModernTheme, ButtonStyles
-from .components import ToastManager, CollapsibleFrame
+# Прямой импорт компонентов чтобы избежать загрузки новых v3 компонентов
+from .components.toast import ToastManager
+from .components.collapsible_frame import CollapsibleFrame
 
 
 class ModernApp(ctk.CTk):

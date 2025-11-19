@@ -12,7 +12,7 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, Tuple
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -467,7 +467,3 @@ class DataTab(ctk.CTkFrame):
             current_rows.append(row_widget.get_values())
 
         return self.headers, current_rows
-
-
-# Добавить Tuple в импорты
-from typing import Tuple
